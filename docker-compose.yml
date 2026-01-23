@@ -1,0 +1,32 @@
+version: '3.8'
+
+# Docker Compose para desenvolvimento local do Backend
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: digital-step-flow-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - PORT=8080
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - FRONTEND_URL=http://localhost:3000
+    volumes:
+      - ./src:/app/src:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  app-network:
+    driver: bridge
+
