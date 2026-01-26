@@ -1,7 +1,8 @@
 # Multi-stage build for backend
 # Stage 1: Build
-ARG BASE_IMAGE_DEV=raphaelmoraes/digital-step-flow-base-node:latest-dev
-FROM ${BASE_IMAGE_DEV} AS builder
+# checkov:skip=CKV_DOCKER_7: Base image uses specific version tag (24.13.0-r1-dev) via ARG, not 'latest'
+ARG NODEJS_VERSION=24.13.0-r1
+FROM raphaelmoraes/digital-step-flow-base-node:${NODEJS_VERSION}-dev AS builder
 
 # Set working directory
 WORKDIR /app
@@ -19,8 +20,8 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production
-ARG BASE_IMAGE_PROD=raphaelmoraes/digital-step-flow-base-node:latest
-FROM ${BASE_IMAGE_PROD}
+# checkov:skip=CKV_DOCKER_7: Base image uses specific version tag (24.13.0-r1) via ARG, not 'latest'
+FROM raphaelmoraes/digital-step-flow-base-node:${NODEJS_VERSION}
 
 # Set working directory
 WORKDIR /app

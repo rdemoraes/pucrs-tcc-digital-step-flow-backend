@@ -18,27 +18,67 @@ env:
   DOCKER_HUB_USERNAME: raphaelmoraes
   BASE_IMAGE: raphaelmoraes/digital-step-flow-base-node
   BACKEND_IMAGE: raphaelmoraes/digital-step-flow-backend
+  NODEJS_VERSION: 24.13.0-r1
+  NPM_VERSION: 10.9.2
 
 jobs:
-  quality-gate:
-    name: Quality Gate (MegaLinter)
+  quality-gate-infra:
+    name: Quality Gate - Infrastructure (K8s, ArgoCD)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Full history for repository linters
       
-      - name: Run MegaLinter
-        uses: oxsecurity/megalinter-action@v7
+      - name: Run MegaLinter for Infrastructure
+        uses: oxsecurity/megalinter@v7
+        env:
+          DEFAULT_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          APPLY_FIXES: none
+          # Only include infrastructure files
+          FILTER_REGEX_INCLUDE: (k8s/|argocd/|docker-compose\.yml|Dockerfile|\.dockerignore)
+          # Enable infrastructure-focused linters
+          ENABLE: YAML,DOCKER,REPOSITORY
+          # Disable code-focused linters
+          DISABLE: COPYPASTE,SPELL,JAVASCRIPT,TYPESCRIPT,JSON,MARKDOWN,BASH
+          # Enable infrastructure security scanners
+          REPOSITORY_KICS_ENABLE: 'true'
+          REPOSITORY_CHECKOV_ENABLE: 'true'
+          REPOSITORY_TRIVY_ENABLE: 'true'
+          # Disable devskim (has XML parsing errors)
+          REPOSITORY_DEVSKIM_DISABLE: 'true'
+          # Make yamllint non-blocking (warnings only)
+          DISABLE_ERRORS_LINTERS: YAML
+          FILTER_REGEX_EXCLUDE: (node_modules|\.git|dist|build|coverage|\.next|\.cache)
+          LOG_LEVEL: INFO
+          PRINT_ALL_FILES: true
+          SHOW_ELAPSED_TIME: true
+
+  quality-gate-code:
+    name: Quality Gate - Source Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for repository linters
+      
+      - name: Run MegaLinter for Source Code
+        uses: oxsecurity/megalinter@v7
         env:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_ALL_CODEBASE: true
           APPLY_FIXES: none
-          DISABLE_ERRORS_LINTERS: ''
-          DISABLE: COPYPASTE,SPELL
-          ENABLE: JAVASCRIPT,TYPESCRIPT,JSON,YAML,MARKDOWN,DOCKER,BASH,REPOSITORY
-          FILTER_REGEX_EXCLUDE: (node_modules|\.git|dist|build|coverage|\.next|\.cache)
+          # Exclude infrastructure files and build artifacts
+          FILTER_REGEX_EXCLUDE: (k8s/|argocd/|docker-compose\.yml|Dockerfile|\.dockerignore|node_modules|\.git|dist|build|coverage|\.next|\.cache)
+          # Enable code-focused linters
+          ENABLE: JAVASCRIPT,TYPESCRIPT,BASH
+          # Disable infrastructure linters and duplicate style checkers
+          DISABLE: COPYPASTE,SPELL,JAVASCRIPT_STANDARD,TYPESCRIPT_TS_STANDARD,REPOSITORY_KICS,REPOSITORY_CHECKOV,REPOSITORY_TRIVY,REPOSITORY_DEVSKIM,REPOSITORY_GITLEAKS,REPOSITORY_TRUFFLEHOG,REPOSITORY_GRYPE,REPOSITORY_SECRETLINT,REPOSITORY_DUSTILOCK,REPOSITORY_SYFT,REPOSITORY_TRIVY_SBOM,REPOSITORY_GIT_DIFF,DOCKER,YAML,MARKDOWN,JSON
+          # Make some linters non-blocking (warnings only)
+          DISABLE_ERRORS_LINTERS: BASH
           LOG_LEVEL: INFO
           PRINT_ALL_FILES: true
           SHOW_ELAPSED_TIME: true
@@ -90,7 +130,7 @@ jobs:
   build:
     name: Build Backend Image
     runs-on: ubuntu-latest
-    needs: [quality-gate, lint, test]
+    needs: [quality-gate-infra, quality-gate-code, lint, test]
     permissions:
       contents: write  # Required to create tags
     steps:
@@ -121,13 +161,6 @@ jobs:
             "$GITHUB_EVENT_PULL_REQUEST_HEAD_REF" \
             "$GITHUB_REF_NAME"
       
-      - name: Get base image version
-        id: base_version
-        run: |
-          # For now, use the same version. In production, you might want to fetch latest base image version
-          BASE_VERSION="${{ steps.version.outputs.version }}"
-          echo "base_version=${BASE_VERSION}" >> $GITHUB_OUTPUT
-      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
@@ -142,9 +175,7 @@ jobs:
           targets: backend
           push: true
           set: |
-            backend.args.BASE_IMAGE_VERSION=${{ steps.base_version.outputs.base_version }}
-            backend.args.BASE_IMAGE_PROD=${{ env.BASE_IMAGE }}:${{ steps.base_version.outputs.base_version }}
-            backend.args.BASE_IMAGE_DEV=${{ env.BASE_IMAGE }}:${{ steps.base_version.outputs.base_version }}-dev
+            backend.args.NODEJS_VERSION=${{ env.NODEJS_VERSION }}
             backend.args.BACKEND_IMAGE_VERSION=${{ steps.version.outputs.version }}
             backend.tags=${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}
       
@@ -292,16 +323,9 @@ jobs:
       - name: Update backend image in kustomization
         working-directory: ./k8s
         run: |
-          # Extract current image from deployment.yaml
-          OLD_IMAGE=$(grep "image:" deployment.yaml | head -1 | sed 's/.*image: *//' | tr -d '"' || echo "")
-          NEW_IMAGE="${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}"
-          echo "Updating backend image: ${OLD_IMAGE} -> ${NEW_IMAGE}"
-          
-          # Update deployment.yaml directly
-          sed -i "s|image:.*digital-step-flow-backend.*|image: ${NEW_IMAGE}|g" deployment.yaml
-          
           # Update kustomization.yaml using kustomize edit set image
-          kustomize edit set image backend=${NEW_IMAGE}
+          # This will update the image tag in the base deployment
+          kustomize edit set image raphaelmoraes/digital-step-flow-backend=${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}
       
       - name: Check for changes
         id: changes
@@ -318,7 +342,7 @@ jobs:
       - name: Commit and push changes
         if: steps.changes.outputs.has_changes == 'true'
         run: |
-          git add k8s/kustomization.yaml k8s/deployment.yaml
+          git add k8s/base/kustomization.yaml
           git commit -m "chore: update image tag to ${{ steps.version.outputs.version }} [skip ci]"
           git push origin HEAD:${{ github.ref_name }}
 

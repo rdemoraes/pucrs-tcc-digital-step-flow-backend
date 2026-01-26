@@ -2,11 +2,8 @@ variable "DOCKER_HUB_USERNAME" {
   default = "raphaelmoraes"
 }
 
-# Semantic Versioning (SemVer): MAJOR.MINOR.PATCH
-# Example: 1.0.0, 1.2.3, 2.0.0
-# See: https://semver.org/
-variable "BASE_IMAGE_VERSION" {
-  default = ""
+variable "NODEJS_VERSION" {
+  default = "24.13.0-r1"
 }
 
 # Semantic Versioning (SemVer): MAJOR.MINOR.PATCH
@@ -45,8 +42,7 @@ target "_common_app" {
 target "backend" {
   inherits = ["_common_app"]
   args = {
-    BASE_IMAGE_PROD = "${DOCKER_HUB_USERNAME}/digital-step-flow-base-node:${BASE_IMAGE_VERSION}"
-    BASE_IMAGE_DEV = "${DOCKER_HUB_USERNAME}/digital-step-flow-base-node:${BASE_IMAGE_VERSION}-dev"
+    NODEJS_VERSION = NODEJS_VERSION
   }
   tags = [
     "${DOCKER_HUB_USERNAME}/digital-step-flow-backend:${BACKEND_IMAGE_VERSION}",
