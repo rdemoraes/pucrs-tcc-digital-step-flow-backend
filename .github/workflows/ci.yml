@@ -7,6 +7,7 @@ on:
       - 'v*.*.*'  # Semantic versioning tags: v1.0.0, v1.2.3, etc.
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:  # Allow manual triggering
 
 # Prevent workflow from running on commits with [skip ci] or [ci skip]
 concurrency:
@@ -22,67 +23,6 @@ env:
   NPM_VERSION: 10.9.2
 
 jobs:
-  quality-gate-infra:
-    name: Quality Gate - Infrastructure (K8s, ArgoCD)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for repository linters
-      
-      - name: Run MegaLinter for Infrastructure
-        uses: oxsecurity/megalinter@v7
-        env:
-          DEFAULT_BRANCH: main
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_ALL_CODEBASE: false
-          APPLY_FIXES: none
-          # Only include infrastructure files
-          FILTER_REGEX_INCLUDE: (k8s/|argocd/|docker-compose\.yml|Dockerfile|\.dockerignore)
-          # Enable infrastructure-focused linters
-          ENABLE: YAML,DOCKER,REPOSITORY
-          # Disable code-focused linters
-          DISABLE: COPYPASTE,SPELL,JAVASCRIPT,TYPESCRIPT,JSON,MARKDOWN,BASH
-          # Enable infrastructure security scanners
-          REPOSITORY_KICS_ENABLE: 'true'
-          REPOSITORY_CHECKOV_ENABLE: 'true'
-          REPOSITORY_TRIVY_ENABLE: 'true'
-          # Disable devskim (has XML parsing errors)
-          REPOSITORY_DEVSKIM_DISABLE: 'true'
-          # Make yamllint non-blocking (warnings only)
-          DISABLE_ERRORS_LINTERS: YAML
-          FILTER_REGEX_EXCLUDE: (node_modules|\.git|dist|build|coverage|\.next|\.cache)
-          LOG_LEVEL: INFO
-          PRINT_ALL_FILES: true
-          SHOW_ELAPSED_TIME: true
-
-  quality-gate-code:
-    name: Quality Gate - Source Code
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for repository linters
-      
-      - name: Run MegaLinter for Source Code
-        uses: oxsecurity/megalinter@v7
-        env:
-          DEFAULT_BRANCH: main
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_ALL_CODEBASE: true
-          APPLY_FIXES: none
-          # Exclude infrastructure files and build artifacts
-          FILTER_REGEX_EXCLUDE: (k8s/|argocd/|docker-compose\.yml|Dockerfile|\.dockerignore|node_modules|\.git|dist|build|coverage|\.next|\.cache)
-          # Enable code-focused linters
-          ENABLE: JAVASCRIPT,TYPESCRIPT,BASH
-          # Disable infrastructure linters and duplicate style checkers
-          DISABLE: COPYPASTE,SPELL,JAVASCRIPT_STANDARD,TYPESCRIPT_TS_STANDARD,REPOSITORY_KICS,REPOSITORY_CHECKOV,REPOSITORY_TRIVY,REPOSITORY_DEVSKIM,REPOSITORY_GITLEAKS,REPOSITORY_TRUFFLEHOG,REPOSITORY_GRYPE,REPOSITORY_SECRETLINT,REPOSITORY_DUSTILOCK,REPOSITORY_SYFT,REPOSITORY_TRIVY_SBOM,REPOSITORY_GIT_DIFF,DOCKER,YAML,MARKDOWN,JSON
-          # Make some linters non-blocking (warnings only)
-          DISABLE_ERRORS_LINTERS: BASH
-          LOG_LEVEL: INFO
-          PRINT_ALL_FILES: true
-          SHOW_ELAPSED_TIME: true
-
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
@@ -127,10 +67,73 @@ jobs:
           files: ./coverage/coverage-final.json
           flags: backend
 
+  quality-gate-infra:
+    name: Quality Gate - Infrastructure (K8s, ArgoCD)
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for repository linters
+      
+      - name: Run MegaLinter for Infrastructure
+        uses: oxsecurity/megalinter@v7
+        env:
+          DEFAULT_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          APPLY_FIXES: none
+          # Only include infrastructure files
+          FILTER_REGEX_INCLUDE: (k8s/|argocd/|docker-compose\.yml|Dockerfile|\.dockerignore)
+          # Enable infrastructure-focused linters
+          ENABLE: YAML,DOCKER,REPOSITORY
+          # Disable code-focused linters
+          DISABLE: COPYPASTE,SPELL,JAVASCRIPT,TYPESCRIPT,JSON,MARKDOWN,BASH
+          # Enable infrastructure security scanners
+          REPOSITORY_KICS_ENABLE: 'true'
+          REPOSITORY_CHECKOV_ENABLE: 'true'
+          REPOSITORY_TRIVY_ENABLE: 'true'
+          # Disable devskim (has XML parsing errors)
+          REPOSITORY_DEVSKIM_DISABLE: 'true'
+          # Make yamllint non-blocking (warnings only)
+          DISABLE_ERRORS_LINTERS: YAML
+          FILTER_REGEX_EXCLUDE: (node_modules|\.git|dist|build|coverage|\.next|\.cache)
+          LOG_LEVEL: INFO
+          PRINT_ALL_FILES: true
+          SHOW_ELAPSED_TIME: true
+
+  quality-gate-code:
+    name: Quality Gate - Source Code
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for repository linters
+      
+      - name: Run MegaLinter for Source Code
+        uses: oxsecurity/megalinter@v7
+        env:
+          DEFAULT_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: true
+          APPLY_FIXES: none
+          # Exclude infrastructure files and build artifacts
+          FILTER_REGEX_EXCLUDE: (k8s/|argocd/|docker-compose\.yml|Dockerfile|\.dockerignore|node_modules|\.git|dist|build|coverage|\.next|\.cache)
+          # Enable code-focused linters
+          ENABLE: JAVASCRIPT,TYPESCRIPT,BASH
+          # Disable infrastructure linters and duplicate style checkers
+          DISABLE: COPYPASTE,SPELL,JAVASCRIPT_STANDARD,TYPESCRIPT_TS_STANDARD,REPOSITORY_KICS,REPOSITORY_CHECKOV,REPOSITORY_TRIVY,REPOSITORY_DEVSKIM,REPOSITORY_GITLEAKS,REPOSITORY_TRUFFLEHOG,REPOSITORY_GRYPE,REPOSITORY_SECRETLINT,REPOSITORY_DUSTILOCK,REPOSITORY_SYFT,REPOSITORY_TRIVY_SBOM,REPOSITORY_GIT_DIFF,DOCKER,YAML,MARKDOWN,JSON
+          # Make some linters non-blocking (warnings only)
+          DISABLE_ERRORS_LINTERS: BASH
+          LOG_LEVEL: INFO
+          PRINT_ALL_FILES: true
+          SHOW_ELAPSED_TIME: true
+
   build:
     name: Build Backend Image
     runs-on: ubuntu-latest
-    needs: [quality-gate-infra, quality-gate-code, lint, test]
+    needs: [quality-gate-infra, quality-gate-code]
     permissions:
       contents: write  # Required to create tags
     steps:
@@ -278,11 +281,11 @@ jobs:
             trivy-image-backend-sbom.json
           retention-days: 30
 
-  update-k8s-manifests:
-    name: Update Kubernetes Manifests
+  k8s-set-deploy-image-dev:
+    name: Update Kubernetes Manifests - Dev
     runs-on: ubuntu-latest
-    # Only run on push to main/develop (after PR merge), not on PRs or tags
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.ref_type == 'branch'
+    # Run on push to develop (after PR merge) or manual workflow_dispatch on develop
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/develop' && github.ref_type == 'branch') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop')
     needs: [build]
     permissions:
       contents: write  # Required to push commits
@@ -309,26 +312,41 @@ jobs:
             "$GITHUB_EVENT_PULL_REQUEST_HEAD_REF" \
             "$GITHUB_REF_NAME"
       
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Clone k8s repository
+        run: |
+          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/pucrs-tcc-digital-step-flow-backend-k8s.git k8s-repo
+      
+      - name: Setup k8s repository for dev
+        working-directory: ./k8s-repo
+        run: |
+          git fetch --tags
+          git checkout develop
+      
       - name: Install Kustomize
         run: |
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
           sudo mv kustomize /usr/local/bin/
           kustomize version
       
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      
       - name: Update backend image in kustomization
-        working-directory: ./k8s
+        working-directory: ./k8s-repo/k8s/dev
         run: |
+          # Extract current image from kustomization.yaml
+          OLD_IMAGE=$(grep "newTag:" kustomization.yaml | head -1 | sed 's/.*newTag: *//' | tr -d '"' || echo "")
+          NEW_IMAGE="${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}"
+          echo "Updating dev backend image: ${OLD_IMAGE} -> ${NEW_IMAGE}"
+          
           # Update kustomization.yaml using kustomize edit set image
-          # This will update the image tag in the base deployment
-          kustomize edit set image raphaelmoraes/digital-step-flow-backend=${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}
+          kustomize edit set image backend=${NEW_IMAGE}
       
       - name: Check for changes
         id: changes
+        working-directory: ./k8s-repo
         run: |
           if [ -n "$(git status --porcelain)" ]; then
             echo "has_changes=true" >> $GITHUB_OUTPUT
@@ -341,8 +359,102 @@ jobs:
       
       - name: Commit and push changes
         if: steps.changes.outputs.has_changes == 'true'
+        working-directory: ./k8s-repo
         run: |
-          git add k8s/base/kustomization.yaml
-          git commit -m "chore: update image tag to ${{ steps.version.outputs.version }} [skip ci]"
-          git push origin HEAD:${{ github.ref_name }}
+          git add k8s/dev/kustomization.yaml
+          git commit -m "chore: update dev image tag to ${{ steps.version.outputs.version }} [skip ci]"
+          git push origin develop
+
+  k8s-set-deploy-image-prod:
+    name: Update Kubernetes Manifests - Prod
+    runs-on: ubuntu-latest
+    # Only run on manual workflow_dispatch trigger, never automatically
+    # Must run after dev job completes (depends on dev job)
+    # Can be triggered on develop (where dev runs) or main/master
+    if: github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
+    needs: [k8s-set-deploy-image-dev]
+    permissions:
+      contents: write  # Required to push commits
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Determine version based on branch strategy
+        id: version
+        env:
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_HEAD_REF: ${{ github.event.head_ref }}
+          GITHUB_EVENT_PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          source scripts/version.sh
+          determine_version \
+            "$GITHUB_REF_TYPE" \
+            "$GITHUB_REF" \
+            "$GITHUB_HEAD_REF" \
+            "$GITHUB_EVENT_PULL_REQUEST_HEAD_REF" \
+            "$GITHUB_REF_NAME"
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Determine production branch
+        id: prod_branch
+        run: |
+          PROD_BRANCH="production"
+          echo "branch=${PROD_BRANCH}" >> $GITHUB_OUTPUT
+          echo "Production branch: ${PROD_BRANCH}"
+      
+      - name: Clone k8s repository
+        run: |
+          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/pucrs-tcc-digital-step-flow-backend-k8s.git k8s-repo
+      
+      - name: Setup k8s repository for prod
+        working-directory: ./k8s-repo
+        run: |
+          git fetch --tags
+          git checkout ${{ steps.prod_branch.outputs.branch }}
+      
+      - name: Install Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+          kustomize version
+      
+      - name: Update backend image in kustomization
+        working-directory: ./k8s-repo/k8s/prod
+        run: |
+          # Extract current image from kustomization.yaml
+          OLD_IMAGE=$(grep "newTag:" kustomization.yaml | head -1 | sed 's/.*newTag: *//' | tr -d '"' || echo "")
+          NEW_IMAGE="${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}"
+          echo "Updating prod backend image: ${OLD_IMAGE} -> ${NEW_IMAGE}"
+          
+          # Update kustomization.yaml using kustomize edit set image
+          kustomize edit set image backend=${NEW_IMAGE}
+      
+      - name: Check for changes
+        id: changes
+        working-directory: ./k8s-repo
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected:"
+            git status --short
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          fi
+      
+      - name: Commit and push changes
+        if: steps.changes.outputs.has_changes == 'true'
+        working-directory: ./k8s-repo
+        run: |
+          git add k8s/prod/kustomization.yaml
+          git commit -m "chore: update prod image tag to ${{ steps.version.outputs.version }} [skip ci]"
+          git push origin ${{ steps.prod_branch.outputs.branch }}
 
