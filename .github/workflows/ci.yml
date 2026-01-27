@@ -1,13 +1,12 @@
-name: CI Pipeline - Backend
+name: CI Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ develop ]
     tags:
       - 'v*.*.*'  # Semantic versioning tags: v1.0.0, v1.2.3, etc.
   pull_request:
-    branches: [ main, develop ]
-  workflow_dispatch:  # Allow manual triggering
+    branches: [ develop ]
 
 # Prevent workflow from running on commits with [skip ci] or [ci skip]
 concurrency:
@@ -19,8 +18,8 @@ env:
   DOCKER_HUB_USERNAME: raphaelmoraes
   BASE_IMAGE: raphaelmoraes/digital-step-flow-base-node
   BACKEND_IMAGE: raphaelmoraes/digital-step-flow-backend
-  NODEJS_VERSION: 24.13.0-r1
-  NPM_VERSION: 10.9.2
+  NODEJS_VERSION: '24.13.0-r1'
+  NPM_VERSION: '10.9.2'
 
 jobs:
   lint:
@@ -29,10 +28,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Extract Node.js version (major.minor.patch)
+        id: node_version
+        run: |
+          # Extract only major.minor.patch from version (e.g., 24.13.0-r1 -> 24.13.0)
+          NODE_VERSION=$(echo "${{ env.NODEJS_VERSION }}" | sed 's/-.*//')
+          echo "version=${NODE_VERSION}" >> $GITHUB_OUTPUT
+          echo "Using Node.js version: ${NODE_VERSION}"
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.13.0'
+          node-version: ${{ steps.node_version.outputs.version }}
           cache: 'npm'
           cache-dependency-path: package-lock.json
       
@@ -42,35 +49,38 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-  test:
-    name: Test Backend
+  quality-gate-code:
+    name: Quality Gate - Source Code
     runs-on: ubuntu-latest
+    needs: [lint]
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: '24.13.0'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
+          fetch-depth: 0  # Full history for repository linters
       
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Run tests
-        run: npm run test:coverage
-      
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage/coverage-final.json
-          flags: backend
+      - name: Run MegaLinter for Source Code
+        uses: oxsecurity/megalinter@v7
+        env:
+          DEFAULT_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: true
+          APPLY_FIXES: none
+          # Exclude infrastructure files and build artifacts
+          FILTER_REGEX_EXCLUDE: (k8s/|argocd/|docker-compose\.yml|Dockerfile|\.dockerignore|node_modules|\.git|dist|build|coverage|\.next|\.cache)
+          # Enable code-focused linters
+          ENABLE: JAVASCRIPT,TYPESCRIPT,BASH
+          # Disable infrastructure linters and duplicate style checkers
+          DISABLE: COPYPASTE,SPELL,JAVASCRIPT_STANDARD,TYPESCRIPT_TS_STANDARD,REPOSITORY_KICS,REPOSITORY_CHECKOV,REPOSITORY_TRIVY,REPOSITORY_DEVSKIM,REPOSITORY_GITLEAKS,REPOSITORY_TRUFFLEHOG,REPOSITORY_GRYPE,REPOSITORY_SECRETLINT,REPOSITORY_DUSTILOCK,REPOSITORY_SYFT,REPOSITORY_TRIVY_SBOM,REPOSITORY_GIT_DIFF,DOCKER,YAML,MARKDOWN,JSON
+          # Make some linters non-blocking (warnings only)
+          DISABLE_ERRORS_LINTERS: BASH
+          LOG_LEVEL: INFO
+          PRINT_ALL_FILES: true
+          SHOW_ELAPSED_TIME: true
 
   quality-gate-infra:
-    name: Quality Gate - Infrastructure (K8s, ArgoCD)
+    name: Quality Gate - Infra Code
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -102,38 +112,44 @@ jobs:
           PRINT_ALL_FILES: true
           SHOW_ELAPSED_TIME: true
 
-  quality-gate-code:
-    name: Quality Gate - Source Code
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for repository linters
-      
-      - name: Run MegaLinter for Source Code
-        uses: oxsecurity/megalinter@v7
-        env:
-          DEFAULT_BRANCH: main
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_ALL_CODEBASE: true
-          APPLY_FIXES: none
-          # Exclude infrastructure files and build artifacts
-          FILTER_REGEX_EXCLUDE: (k8s/|argocd/|docker-compose\.yml|Dockerfile|\.dockerignore|node_modules|\.git|dist|build|coverage|\.next|\.cache)
-          # Enable code-focused linters
-          ENABLE: JAVASCRIPT,TYPESCRIPT,BASH
-          # Disable infrastructure linters and duplicate style checkers
-          DISABLE: COPYPASTE,SPELL,JAVASCRIPT_STANDARD,TYPESCRIPT_TS_STANDARD,REPOSITORY_KICS,REPOSITORY_CHECKOV,REPOSITORY_TRIVY,REPOSITORY_DEVSKIM,REPOSITORY_GITLEAKS,REPOSITORY_TRUFFLEHOG,REPOSITORY_GRYPE,REPOSITORY_SECRETLINT,REPOSITORY_DUSTILOCK,REPOSITORY_SYFT,REPOSITORY_TRIVY_SBOM,REPOSITORY_GIT_DIFF,DOCKER,YAML,MARKDOWN,JSON
-          # Make some linters non-blocking (warnings only)
-          DISABLE_ERRORS_LINTERS: BASH
-          LOG_LEVEL: INFO
-          PRINT_ALL_FILES: true
-          SHOW_ELAPSED_TIME: true
-
-  build:
-    name: Build Backend Image
+  test:
+    name: Test - Backend
     runs-on: ubuntu-latest
     needs: [quality-gate-infra, quality-gate-code]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Extract Node.js version (major.minor.patch)
+        id: node_version
+        run: |
+          # Extract only major.minor.patch from version (e.g., 24.13.0-r1 -> 24.13.0)
+          NODE_VERSION=$(echo "${{ env.NODEJS_VERSION }}" | sed 's/-.*//')
+          echo "version=${NODE_VERSION}" >> $GITHUB_OUTPUT
+          echo "Using Node.js version: ${NODE_VERSION}"
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.node_version.outputs.version }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: npm run test:coverage
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/coverage-final.json
+          flags: backend
+
+  build:
+    name: Build Container Image
+    needs: [test]
+    runs-on: ubuntu-latest
     permissions:
       contents: write  # Required to create tags
     steps:
@@ -182,9 +198,41 @@ jobs:
             backend.args.BACKEND_IMAGE_VERSION=${{ steps.version.outputs.version }}
             backend.tags=${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}
       
-      - name: Pull image for scanning
+      - name: Output image version
+        run: |
+          echo "IMAGE_VERSION=${{ steps.version.outputs.version }}" >> $GITHUB_ENV
+          echo "Built image: ${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}"
+
+  trivy-scan:
+    name: Trivy Vulnerability Scan
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Determine version based on branch strategy
+        id: version
+        env:
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_HEAD_REF: ${{ github.event.head_ref }}
+          GITHUB_EVENT_PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          source scripts/version.sh
+          determine_version \
+            "$GITHUB_REF_TYPE" \
+            "$GITHUB_REF" \
+            "$GITHUB_HEAD_REF" \
+            "$GITHUB_EVENT_PULL_REQUEST_HEAD_REF" \
+            "$GITHUB_REF_NAME"
+      
+      - name: Log in to Docker Hub
         run: |
           echo "${{ secrets.DOCKERHUB_PAT }}" | docker login -u "${{ secrets.DOCKERHUB_USER }}" --password-stdin
+      
+      - name: Pull image for scanning
+        run: |
           docker pull ${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}
       
       - name: Run Trivy vulnerability scanner
@@ -268,6 +316,77 @@ jobs:
             cat ./outerr_json.log >&2
           fi
       
+      - name: Generate Trivy Report Summary
+        if: always()
+        env:
+          IMAGE_REF: ${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}
+        run: |
+          echo "## Trivy Vulnerability Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ -f "trivy-image-backend.json" ]]; then
+            # Parse JSON report to extract vulnerability counts
+            CRITICAL=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-image-backend.json 2>/dev/null || echo "0")
+            HIGH=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-image-backend.json 2>/dev/null || echo "0")
+            MEDIUM=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' trivy-image-backend.json 2>/dev/null || echo "0")
+            LOW=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW")] | length' trivy-image-backend.json 2>/dev/null || echo "0")
+            TOTAL=$((CRITICAL + HIGH + MEDIUM + LOW))
+            
+            # Get image details
+            IMAGE_NAME=$(jq -r '.ArtifactName // "unknown"' trivy-image-backend.json 2>/dev/null || echo "${IMAGE_REF}")
+            IMAGE_TYPE=$(jq -r '.ArtifactType // "container"' trivy-image-backend.json 2>/dev/null || echo "container")
+            
+            # Determine status emoji
+            if [[ ${CRITICAL} -gt 0 ]] || [[ ${HIGH} -gt 0 ]]; then
+              STATUS_EMOJI="❌"
+              STATUS="Failed"
+            elif [[ ${TOTAL} -eq 0 ]]; then
+              STATUS_EMOJI="✅"
+              STATUS="Clean"
+            else
+              STATUS_EMOJI="⚠️"
+              STATUS="Warnings"
+            fi
+            
+            echo "### Scan Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Target | Type | Status | Critical | High | Medium | Low | Total |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|------|--------|----------|------|--------|-----|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| \`${IMAGE_REF}\` | ${IMAGE_TYPE} | ${STATUS_EMOJI} ${STATUS} | **${CRITICAL}** | **${HIGH}** | ${MEDIUM} | ${LOW} | ${TOTAL} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [[ ${TOTAL} -eq 0 ]]; then
+              echo "✅ **No vulnerabilities detected**" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### Vulnerability Breakdown" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              if [[ ${CRITICAL} -gt 0 ]]; then
+                echo "- 🔴 **Critical:** ${CRITICAL}" >> $GITHUB_STEP_SUMMARY
+              fi
+              if [[ ${HIGH} -gt 0 ]]; then
+                echo "- 🟠 **High:** ${HIGH}" >> $GITHUB_STEP_SUMMARY
+              fi
+              if [[ ${MEDIUM} -gt 0 ]]; then
+                echo "- 🟡 **Medium:** ${MEDIUM}" >> $GITHUB_STEP_SUMMARY
+              fi
+              if [[ ${LOW} -gt 0 ]]; then
+                echo "- 🟢 **Low:** ${LOW}" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Reports" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Detailed reports are available in the workflow artifacts:" >> $GITHUB_STEP_SUMMARY
+            echo "- 📄 [HTML Report](artifact://trivy-reports-backend/trivy-image-backend.html)" >> $GITHUB_STEP_SUMMARY
+            echo "- 📊 [JSON Report](artifact://trivy-reports-backend/trivy-image-backend.json)" >> $GITHUB_STEP_SUMMARY
+            echo "- 📋 [XML Report (JUnit)](artifact://trivy-reports-backend/trivy-image-backend.xml)" >> $GITHUB_STEP_SUMMARY
+            echo "- 📦 [SBOM (CycloneDX)](artifact://trivy-reports-backend/trivy-image-backend-sbom.json)" >> $GITHUB_STEP_SUMMARY
+            echo "- 📝 [Text Summary](artifact://trivy-reports-backend/trivy-image-backend.txt)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Warning:** JSON report not found. Unable to generate summary." >> $GITHUB_STEP_SUMMARY
+          fi
+      
       - name: Upload Trivy reports
         uses: actions/upload-artifact@v4
         if: always()
@@ -284,9 +403,10 @@ jobs:
   k8s-set-deploy-image-dev:
     name: Update Kubernetes Manifests - Dev
     runs-on: ubuntu-latest
-    # Run on push to develop (after PR merge) or manual workflow_dispatch on develop
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/develop' && github.ref_type == 'branch') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop')
-    needs: [build]
+    container:
+      image: raphaelmoraes/digital-step-flow-cicd-runner:0.0.1
+      options: --user root
+    needs: [build, trivy-scan]
     permissions:
       contents: write  # Required to push commits
     steps:
@@ -329,8 +449,8 @@ jobs:
       
       - name: Install Kustomize
         run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-          sudo mv kustomize /usr/local/bin/
+          # curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          # sudo mv kustomize /usr/local/bin/
           kustomize version
       
       - name: Update backend image in kustomization
@@ -368,6 +488,9 @@ jobs:
   k8s-set-deploy-image-prod:
     name: Update Kubernetes Manifests - Prod
     runs-on: ubuntu-latest
+    container:
+      image: raphaelmoraes/digital-step-flow-cicd-runner:0.0.1
+      options: --user root
     # Only run on manual workflow_dispatch trigger, never automatically
     # Must run after dev job completes (depends on dev job)
     # Can be triggered on develop (where dev runs) or main/master
@@ -380,6 +503,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       
       - name: Determine version based on branch strategy
         id: version
@@ -422,8 +546,8 @@ jobs:
       
       - name: Install Kustomize
         run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-          sudo mv kustomize /usr/local/bin/
+          # curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          # sudo mv kustomize /usr/local/bin/
           kustomize version
       
       - name: Update backend image in kustomization
