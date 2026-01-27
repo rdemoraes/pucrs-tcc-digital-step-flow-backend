@@ -1,0 +1,111 @@
+name: CD Pipeline - Deploy PROD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual triggering
+
+# Prevent workflow from running on commits with [skip ci] or [ci skip]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: docker.io
+  DOCKER_HUB_USERNAME: raphaelmoraes
+  BACKEND_IMAGE: raphaelmoraes/digital-step-flow-backend
+
+jobs:
+  k8s-set-deploy-image-prod:
+    name: Update Kubernetes Manifests - Prod
+    runs-on: ubuntu-latest
+    container:
+      image: raphaelmoraes/digital-step-flow-cicd-runner:0.0.1
+      options: --user root
+    permissions:
+      contents: write  # Required to push commits
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
+      
+      - name: Determine version based on branch strategy
+        id: version
+        env:
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_HEAD_REF: ${{ github.event.head_ref }}
+          GITHUB_EVENT_PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          source scripts/version.sh
+          determine_version \
+            "$GITHUB_REF_TYPE" \
+            "$GITHUB_REF" \
+            "$GITHUB_HEAD_REF" \
+            "$GITHUB_EVENT_PULL_REQUEST_HEAD_REF" \
+            "$GITHUB_REF_NAME"
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Determine production branch
+        id: prod_branch
+        run: |
+          PROD_BRANCH="production"
+          echo "branch=${PROD_BRANCH}" >> $GITHUB_OUTPUT
+          echo "Production branch: ${PROD_BRANCH}"
+      
+      - name: Clone k8s repository
+        run: |
+          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/pucrs-tcc-digital-step-flow-backend-k8s.git k8s-repo
+      
+      - name: Setup k8s repository for prod
+        working-directory: ./k8s-repo
+        run: |
+          git fetch --tags
+          git checkout ${{ steps.prod_branch.outputs.branch }}
+      
+      - name: Install Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+          kustomize version
+      
+      - name: Update backend image in kustomization
+        working-directory: ./k8s-repo/k8s/prod
+        run: |
+          # Extract current image from kustomization.yaml
+          OLD_IMAGE=$(grep "newTag:" kustomization.yaml | head -1 | sed 's/.*newTag: *//' | tr -d '"' || echo "")
+          NEW_IMAGE="${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}"
+          echo "Updating prod backend image: ${OLD_IMAGE} -> ${NEW_IMAGE}"
+          
+          # Update kustomization.yaml using kustomize edit set image
+          kustomize edit set image backend=${NEW_IMAGE}
+      
+      - name: Check for changes
+        id: changes
+        working-directory: ./k8s-repo
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected:"
+            git status --short
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          fi
+      
+      - name: Commit and push changes
+        if: steps.changes.outputs.has_changes == 'true'
+        working-directory: ./k8s-repo
+        run: |
+          git add k8s/prod/kustomization.yaml
+          git commit -m "chore: update prod image tag to ${{ steps.version.outputs.version }} [skip ci]"
+          git push origin ${{ steps.prod_branch.outputs.branch }}
