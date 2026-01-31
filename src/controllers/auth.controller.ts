@@ -7,21 +7,21 @@ import { AuthRequest } from '../middleware/auth.middleware'
 import { logger } from '../utils/logger'
 
 class AuthController {
-  async register(req: Request, res: Response) {
+  async register (req: Request, res: Response): Promise<void> {
     const { email, password, name } = req.body
     const requestId = req.request_id
 
     logger.info('User registration attempt', {
       request_id: requestId,
-      email,
+      email
     })
 
     // Check if user already exists
     const existingUser = await userRepository.findByEmail(email)
-    if (existingUser) {
+    if (existingUser !== null && existingUser !== undefined) {
       logger.warn('User registration failed - user already exists', {
         request_id: requestId,
-        email,
+        email
       })
       throw new AppError('User already exists', 409)
     }
@@ -33,12 +33,12 @@ class AuthController {
     const user = await userRepository.create({
       email,
       password: hashedPassword,
-      name,
+      name
     })
 
     // Generate JWT token
     const jwtSecret = process.env.JWT_SECRET
-    if (!jwtSecret) {
+    if (jwtSecret === undefined || jwtSecret === '') {
       throw new AppError('JWT secret not configured', 500)
     }
 
@@ -51,7 +51,7 @@ class AuthController {
     logger.info('User registration successful', {
       request_id: requestId,
       user_id: user.id,
-      email: user.email,
+      email: user.email
     })
 
     res.status(201).json({
@@ -59,44 +59,44 @@ class AuthController {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
-      },
+        name: user.name
+      }
     })
   }
 
-  async login(req: Request, res: Response) {
+  async login (req: Request, res: Response): Promise<void> {
     const { email, password } = req.body
     const requestId = req.request_id
 
     logger.info('User login attempt', {
       request_id: requestId,
-      email,
+      email
     })
 
     // Find user
     const user = await userRepository.findByEmail(email)
-    if (!user) {
+    if (user === null || user === undefined) {
       logger.warn('User login failed - user not found', {
         request_id: requestId,
-        email,
+        email
       })
       throw new AppError('Invalid credentials', 401)
     }
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password)
-    if (!isValidPassword) {
+    if (isValidPassword !== true) {
       logger.warn('User login failed - invalid password', {
         request_id: requestId,
         email,
-        user_id: user.id,
+        user_id: user.id
       })
       throw new AppError('Invalid credentials', 401)
     }
 
     // Generate JWT token
     const jwtSecret = process.env.JWT_SECRET
-    if (!jwtSecret) {
+    if (jwtSecret === undefined || jwtSecret === '') {
       throw new AppError('JWT secret not configured', 500)
     }
 
@@ -109,7 +109,7 @@ class AuthController {
     logger.info('User login successful', {
       request_id: requestId,
       user_id: user.id,
-      email: user.email,
+      email: user.email
     })
 
     res.json({
@@ -117,13 +117,13 @@ class AuthController {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
-      },
+        name: user.name
+      }
     })
   }
 
-  async getMe(req: AuthRequest, res: Response) {
-    if (!req.user) {
+  async getMe (req: AuthRequest, res: Response): Promise<void> {
+    if (req.user === undefined || req.user === null) {
       throw new AppError('User not authenticated', 401)
     }
 
@@ -132,4 +132,3 @@ class AuthController {
 }
 
 export const authController = new AuthController()
-

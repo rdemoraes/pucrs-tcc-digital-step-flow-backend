@@ -16,24 +16,26 @@ interface LogEntry {
   [key: string]: string | number | undefined
 }
 
-const SERVICE_NAME = process.env.SERVICE_NAME || 'digital-step-flow-backend'
+const SERVICE_NAME = (process.env.SERVICE_NAME !== undefined && process.env.SERVICE_NAME !== '')
+  ? process.env.SERVICE_NAME
+  : 'digital-step-flow-backend'
 
 class Logger {
-  private formatLog(level: LogLevel, message: string, context?: LogContext): string {
+  private formatLog (level: LogLevel, message: string, context?: LogContext): string {
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
       service: SERVICE_NAME,
       message,
-      ...context,
+      ...context
     }
 
     return JSON.stringify(logEntry)
   }
 
-  private log(level: LogLevel, message: string, context?: LogContext): void {
+  private log (level: LogLevel, message: string, context?: LogContext): void {
     const logMessage = this.formatLog(level, message, context)
-    
+
     // Use stdout for INFO and DEBUG, stderr for WARN and ERROR
     if (level === 'ERROR' || level === 'WARN') {
       console.error(logMessage)
@@ -42,19 +44,19 @@ class Logger {
     }
   }
 
-  debug(message: string, context?: LogContext): void {
+  debug (message: string, context?: LogContext): void {
     this.log('DEBUG', message, context)
   }
 
-  info(message: string, context?: LogContext): void {
+  info (message: string, context?: LogContext): void {
     this.log('INFO', message, context)
   }
 
-  warn(message: string, context?: LogContext): void {
+  warn (message: string, context?: LogContext): void {
     this.log('WARN', message, context)
   }
 
-  error(message: string, context?: LogContext): void {
+  error (message: string, context?: LogContext): void {
     this.log('ERROR', message, context)
   }
 }

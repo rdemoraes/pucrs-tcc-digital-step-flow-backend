@@ -2,17 +2,17 @@ import { Request, Response, NextFunction } from 'express'
 import { ZodSchema, ZodError } from 'zod'
 import { AppError } from './errorHandler'
 
-function formatZodErrors(error: ZodError): string {
+function formatZodErrors (error: ZodError): string {
   return error.errors.map((e) => e.message).join(', ')
 }
 
-export function validateRequest(schema: ZodSchema) {
-  return (req: Request, res: Response, next: NextFunction) => {
+export function validateRequest (schema: ZodSchema) {
+  return (req: Request, res: Response, next: NextFunction): void => {
     try {
       schema.parse({
         body: req.body,
         query: req.query,
-        params: req.params,
+        params: req.params
       })
       next()
     } catch (error: unknown) {
@@ -23,4 +23,3 @@ export function validateRequest(schema: ZodSchema) {
     }
   }
 }
-

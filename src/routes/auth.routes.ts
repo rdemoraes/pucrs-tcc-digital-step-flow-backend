@@ -23,4 +23,3 @@ authRouter.get(
   authenticateToken,
   authController.getMe
 )
-

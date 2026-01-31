@@ -24,26 +24,28 @@ interface UpdateUserData {
 const users: User[] = []
 
 class UserRepository {
-  async create(data: CreateUserData): Promise<User> {
+  async create (data: CreateUserData): Promise<User> {
     const user: User = {
       id: uuidv4(),
       ...data,
       createdAt: new Date(),
-      updatedAt: new Date(),
+      updatedAt: new Date()
     }
     users.push(user)
     return user
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    return users.find((u) => u.email === email) || null
+  async findByEmail (email: string): Promise<User | null> {
+    const found = users.find((u) => u.email === email)
+    return found ?? null
   }
 
-  async findById(id: string): Promise<User | null> {
-    return users.find((u) => u.id === id) || null
+  async findById (id: string): Promise<User | null> {
+    const found = users.find((u) => u.id === id)
+    return found ?? null
   }
 
-  async update(id: string, data: UpdateUserData): Promise<User> {
+  async update (id: string, data: UpdateUserData): Promise<User> {
     const userIndex = users.findIndex((u) => u.id === id)
     if (userIndex === -1) {
       throw new Error('User not found')
@@ -52,7 +54,7 @@ class UserRepository {
     users[userIndex] = {
       ...users[userIndex],
       ...data,
-      updatedAt: new Date(),
+      updatedAt: new Date()
     }
 
     return users[userIndex]
@@ -60,4 +62,3 @@ class UserRepository {
 }
 
 export const userRepository = new UserRepository()
-

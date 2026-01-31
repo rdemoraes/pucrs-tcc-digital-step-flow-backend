@@ -9,4 +9,3 @@ userRouter.use(authenticateToken)
 
 userRouter.get('/profile', userController.getProfile)
 userRouter.put('/profile', userController.updateProfile)
-
