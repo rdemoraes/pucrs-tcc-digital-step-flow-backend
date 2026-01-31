@@ -1,4 +1,4 @@
-/// <reference types="express-serve-static-core" />
+import type {} from 'express-serve-static-core'
 
 declare global {
   namespace Express {
