@@ -108,6 +108,8 @@ jobs:
           REPOSITORY_TRIVY_ENABLE: 'true'
           # Skip specific Checkov checks (same as frontend)
           REPOSITORY_CHECKOV_SKIP_CHECK: CKV2_GHA_1
+          # Exclude LOW and INFO severity findings from KICS; exclude workflow files (same as frontend)
+          REPOSITORY_KICS_ARGUMENTS: "--exclude-severities info,low --exclude-paths .github/workflows/*.yml"
           # Disable DevSkim (XML parse errors with SARIF output; DS162092 flags intentional localhost in Dockerfile/docker-compose)
           DISABLE_LINTERS: REPOSITORY_DEVSKIM
           # Make yamllint non-blocking (warnings only)
