@@ -72,6 +72,8 @@ jobs:
           FILTER_REGEX_EXCLUDE: (k8s/|argocd/|docker-compose\.yml|Dockerfile|\.dockerignore|node_modules|\.git|dist|build|coverage|\.next|\.cache)
           # Enable code-focused linters
           ENABLE: JAVASCRIPT,TYPESCRIPT,BASH
+          # Backend uses ESLint, not ts-standard; disable ts-standard to avoid style conflicts
+          DISABLE_LINTERS: TYPESCRIPT_TS_STANDARD
           # Disable infrastructure linters and duplicate style checkers
           DISABLE: COPYPASTE,SPELL,JAVASCRIPT_STANDARD,TYPESCRIPT_TS_STANDARD,REPOSITORY_KICS,REPOSITORY_CHECKOV,REPOSITORY_TRIVY,REPOSITORY_DEVSKIM,REPOSITORY_GITLEAKS,REPOSITORY_TRUFFLEHOG,REPOSITORY_GRYPE,REPOSITORY_SECRETLINT,REPOSITORY_DUSTILOCK,REPOSITORY_SYFT,REPOSITORY_TRIVY_SBOM,REPOSITORY_GIT_DIFF,DOCKER,YAML,MARKDOWN,JSON
           # Make some linters non-blocking (warnings only)

@@ -1,0 +1,2 @@
+# Backend uses ESLint for TypeScript; disable ts-standard to avoid duplicate/conflicting rules
+DISABLE_LINTERS: TYPESCRIPT_TS_STANDARD
