@@ -9,7 +9,7 @@ import { logger } from '../utils/logger'
 class AuthController {
   async register(req: Request, res: Response) {
     const { email, password, name } = req.body
-    const requestId = (req as any).request_id
+    const requestId = req.request_id
 
     logger.info('User registration attempt', {
       request_id: requestId,
@@ -66,7 +66,7 @@ class AuthController {
 
   async login(req: Request, res: Response) {
     const { email, password } = req.body
-    const requestId = (req as any).request_id
+    const requestId = req.request_id
 
     logger.info('User login attempt', {
       request_id: requestId,

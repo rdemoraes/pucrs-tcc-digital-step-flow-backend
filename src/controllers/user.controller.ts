@@ -10,7 +10,7 @@ class UserController {
       throw new AppError('User not authenticated', 401)
     }
 
-    const requestId = (req as any).request_id
+    const requestId = req.request_id
     const userId = req.user.id
 
     logger.info('Fetching user profile', {
@@ -40,7 +40,7 @@ class UserController {
       throw new AppError('User not authenticated', 401)
     }
 
-    const requestId = (req as any).request_id
+    const requestId = req.request_id
     const userId = req.user.id
     const { name } = req.body
 

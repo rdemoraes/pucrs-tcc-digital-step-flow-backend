@@ -2,16 +2,6 @@ import { Request, Response, NextFunction } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { logger } from '../utils/logger'
 
-// Extend Express Request to include request_id
-declare global {
-  namespace Express {
-    interface Request {
-      request_id?: string
-      start_time?: number
-    }
-  }
-}
-
 export function requestLogger(req: Request, res: Response, next: NextFunction) {
   // Generate request ID if not present
   req.request_id = req.headers['x-request-id'] as string || uuidv4()
@@ -30,7 +20,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
   res.on('finish', () => {
     const duration = req.start_time ? Date.now() - req.start_time : 0
     
-    const logContext: any = {
+    const logContext: Record<string, string | number | undefined> = {
       request_id: req.request_id,
       method: req.method,
       path: req.path,
@@ -39,8 +29,8 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
     }
 
     // Add user_id if available (from auth middleware)
-    if ((req as any).user?.id) {
-      logContext.user_id = (req as any).user.id
+    if (req.user?.id) {
+      logContext.user_id = req.user.id
     }
 
     if (res.statusCode >= 500) {

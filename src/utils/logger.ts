@@ -3,7 +3,7 @@ export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR'
 export interface LogContext {
   request_id?: string
   user_id?: string
-  [key: string]: any
+  [key: string]: string | number | undefined
 }
 
 interface LogEntry {
@@ -13,7 +13,7 @@ interface LogEntry {
   message: string
   request_id?: string
   user_id?: string
-  [key: string]: any
+  [key: string]: string | number | undefined
 }
 
 const SERVICE_NAME = process.env.SERVICE_NAME || 'digital-step-flow-backend'
