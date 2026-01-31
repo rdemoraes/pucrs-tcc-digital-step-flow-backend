@@ -23,7 +23,7 @@ export function errorHandler (
   }
 
   // Add user_id if available
-  if (req.user !== undefined && req.user !== null && req.user.id !== undefined) {
+  if (req.user?.id !== undefined) {
     logContext.user_id = req.user.id
   }
 
@@ -40,4 +40,3 @@ export function errorHandler (
     ...(process.env.NODE_ENV === 'development' && err.stack !== undefined ? { stack: err.stack } : {})
   })
 }
-

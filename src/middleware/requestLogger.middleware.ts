@@ -31,7 +31,7 @@ export function requestLogger (req: Request, res: Response, next: NextFunction):
     }
 
     // Add user_id if available (from auth middleware)
-    if (req.user !== undefined && req.user !== null && req.user.id !== undefined) {
+    if (req.user?.id !== undefined) {
       logContext.user_id = req.user.id
     }
 

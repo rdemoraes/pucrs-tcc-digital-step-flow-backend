@@ -12,12 +12,12 @@ import { register, appInfo } from './utils/metrics'
 
 dotenv.config()
 
-const PORT = process.env.PORT || 8080
-const HEALTH_PORT = process.env.HEALTH_PORT || 8081
-const METRICS_PORT = process.env.METRICS_PORT || 8082
-const SERVICE_NAME = process.env.SERVICE_NAME || 'digital-step-flow-backend'
-const APP_VERSION = process.env.APP_VERSION || '1.0.0'
-const NODE_ENV = process.env.NODE_ENV || 'development'
+const PORT = (process.env.PORT !== undefined && process.env.PORT !== '') ? process.env.PORT : '8080'
+const HEALTH_PORT = (process.env.HEALTH_PORT !== undefined && process.env.HEALTH_PORT !== '') ? process.env.HEALTH_PORT : '8081'
+const METRICS_PORT = (process.env.METRICS_PORT !== undefined && process.env.METRICS_PORT !== '') ? process.env.METRICS_PORT : '8082'
+const SERVICE_NAME = (process.env.SERVICE_NAME !== undefined && process.env.SERVICE_NAME !== '') ? process.env.SERVICE_NAME : 'digital-step-flow-backend'
+const APP_VERSION = (process.env.APP_VERSION !== undefined && process.env.APP_VERSION !== '') ? process.env.APP_VERSION : '1.0.0'
+const NODE_ENV = (process.env.NODE_ENV !== undefined && process.env.NODE_ENV !== '') ? process.env.NODE_ENV : 'development'
 
 // Set application info metric
 appInfo.set({ service: SERVICE_NAME, version: APP_VERSION, environment: NODE_ENV }, 1)
@@ -28,8 +28,8 @@ const app = express()
 // Security middleware
 app.use(helmet())
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
+  origin: (process.env.FRONTEND_URL !== undefined && process.env.FRONTEND_URL !== '') ? process.env.FRONTEND_URL : 'http://localhost:3000',
+  credentials: true
 }))
 
 // Body parsing middleware
@@ -57,8 +57,8 @@ app.use((req, res) => {
 // Health check server (separate port for probes)
 const healthApp = express()
 healthApp.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     service: SERVICE_NAME
   })
@@ -82,7 +82,7 @@ app.listen(PORT, '0.0.0.0', () => {
   logger.info('Main server started', {
     port: PORT,
     service: SERVICE_NAME,
-    environment: process.env.NODE_ENV || 'development',
+    environment: (process.env.NODE_ENV !== undefined && process.env.NODE_ENV !== '') ? process.env.NODE_ENV : 'development'
   })
 })
 
@@ -90,7 +90,7 @@ app.listen(PORT, '0.0.0.0', () => {
 healthApp.listen(HEALTH_PORT, '0.0.0.0', () => {
   logger.info('Health check server started', {
     port: HEALTH_PORT,
-    service: SERVICE_NAME,
+    service: SERVICE_NAME
   })
 })
 
@@ -98,7 +98,6 @@ healthApp.listen(HEALTH_PORT, '0.0.0.0', () => {
 metricsApp.listen(METRICS_PORT, '0.0.0.0', () => {
   logger.info('Metrics server started', {
     port: METRICS_PORT,
-    service: SERVICE_NAME,
+    service: SERVICE_NAME
   })
 })
-

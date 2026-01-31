@@ -15,7 +15,7 @@ export function authenticateToken (
   res: Response,
   next: NextFunction
 ): void {
-  const authHeader = req.headers['authorization']
+  const authHeader = req.headers.authorization
   const token = (typeof authHeader === 'string' && authHeader !== '') ? authHeader.split(' ')[1] : undefined
 
   if (token === undefined || token === null || token === '') {
