@@ -12,9 +12,9 @@ import { register, appInfo } from './utils/metrics'
 
 dotenv.config()
 
-const PORT = (process.env.PORT !== undefined && process.env.PORT !== '') ? process.env.PORT : '8080'
-const HEALTH_PORT = (process.env.HEALTH_PORT !== undefined && process.env.HEALTH_PORT !== '') ? process.env.HEALTH_PORT : '8081'
-const METRICS_PORT = (process.env.METRICS_PORT !== undefined && process.env.METRICS_PORT !== '') ? process.env.METRICS_PORT : '8082'
+const PORT = parseInt((process.env.PORT !== undefined && process.env.PORT !== '') ? process.env.PORT : '8080', 10)
+const HEALTH_PORT = parseInt((process.env.HEALTH_PORT !== undefined && process.env.HEALTH_PORT !== '') ? process.env.HEALTH_PORT : '8081', 10)
+const METRICS_PORT = parseInt((process.env.METRICS_PORT !== undefined && process.env.METRICS_PORT !== '') ? process.env.METRICS_PORT : '8082', 10)
 const SERVICE_NAME = (process.env.SERVICE_NAME !== undefined && process.env.SERVICE_NAME !== '') ? process.env.SERVICE_NAME : 'digital-step-flow-backend'
 const APP_VERSION = (process.env.APP_VERSION !== undefined && process.env.APP_VERSION !== '') ? process.env.APP_VERSION : '1.0.0'
 const NODE_ENV = (process.env.NODE_ENV !== undefined && process.env.NODE_ENV !== '') ? process.env.NODE_ENV : 'development'
@@ -50,13 +50,13 @@ app.use('/api/users', userRouter)
 app.use(errorHandler)
 
 // 404 handler
-app.use((req, res) => {
+app.use((_req, res) => {
   res.status(404).json({ message: 'Route not found' })
 })
 
 // Health check server (separate port for probes)
 const healthApp = express()
-healthApp.get('/health', (req, res) => {
+healthApp.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -66,13 +66,13 @@ healthApp.get('/health', (req, res) => {
 
 // Metrics server (separate port for Prometheus scraping)
 const metricsApp = express()
-metricsApp.get('/metrics', async (req, res) => {
+metricsApp.get('/metrics', async (_req, res) => {
   try {
     res.set('Content-Type', register.contentType)
     const metrics = await register.metrics()
     res.end(metrics)
-  } catch (error) {
-    logger.error('Error generating metrics', { error })
+  } catch (error: unknown) {
+    logger.error('Error generating metrics', { error: error instanceof Error ? error.message : String(error) })
     res.status(500).end('Error generating metrics')
   }
 })

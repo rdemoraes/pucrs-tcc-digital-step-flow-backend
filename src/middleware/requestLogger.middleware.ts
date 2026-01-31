@@ -30,7 +30,6 @@ export function requestLogger (req: Request, res: Response, next: NextFunction):
       duration_ms: duration
     }
 
-    // Add user_id if available (from auth middleware)
     if (req.user?.id !== undefined) {
       logContext.user_id = req.user.id
     }
@@ -44,5 +43,5 @@ export function requestLogger (req: Request, res: Response, next: NextFunction):
     }
   })
 
-  next()
+  ;(next as (err?: unknown) => void)()
 }
