@@ -1,8 +1,15 @@
 import { Request, Response, NextFunction } from 'express'
 import { logger } from '../utils/logger'
 
-export interface AppError extends Error {
+export class AppError extends Error {
   statusCode?: number
+
+  constructor (message: string, statusCode?: number) {
+    super(message)
+    this.name = 'AppError'
+    this.statusCode = statusCode
+    Object.setPrototypeOf(this, AppError.prototype)
+  }
 }
 
 export function errorHandler (
