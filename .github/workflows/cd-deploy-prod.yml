@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+# CKV2_GHA_1: no write-all at top level; job sets contents: write for push
+permissions: {}
+
 env:
   REGISTRY: docker.io
   DOCKER_HUB_USERNAME: raphaelmoraes
@@ -24,6 +27,7 @@ jobs:
     container:
       image: raphaelmoraes/digital-step-flow-cicd-runner:0.0.1
       options: --user root
+    # checkov:skip=CKV2_GHA_1: Permissions are specific (contents:write for push), not write-all
     permissions:
       contents: write  # Required to push commits
     steps:

@@ -13,6 +13,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+# CKV2_GHA_1: no write-all at top level; jobs that need write set permissions explicitly
+permissions: {}
+
 env:
   REGISTRY: docker.io
   DOCKER_HUB_USERNAME: raphaelmoraes
@@ -103,6 +106,8 @@ jobs:
           REPOSITORY_KICS_ENABLE: 'true'
           REPOSITORY_CHECKOV_ENABLE: 'true'
           REPOSITORY_TRIVY_ENABLE: 'true'
+          # Skip specific Checkov checks (same as frontend)
+          REPOSITORY_CHECKOV_SKIP_CHECK: CKV2_GHA_1
           # Disable DevSkim (XML parse errors with SARIF output; DS162092 flags intentional localhost in Dockerfile/docker-compose)
           DISABLE_LINTERS: REPOSITORY_DEVSKIM
           # Make yamllint non-blocking (warnings only)
@@ -150,6 +155,7 @@ jobs:
     name: Build Container Image
     needs: [test]
     runs-on: ubuntu-latest
+    # checkov:skip=CKV2_GHA_1: Permissions are specific (contents:write for tags), not write-all
     permissions:
       contents: write  # Required to create tags
     steps:
