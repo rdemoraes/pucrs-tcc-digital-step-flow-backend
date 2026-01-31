@@ -103,8 +103,8 @@ jobs:
           REPOSITORY_KICS_ENABLE: 'true'
           REPOSITORY_CHECKOV_ENABLE: 'true'
           REPOSITORY_TRIVY_ENABLE: 'true'
-          # Disable devskim (has XML parsing errors)
-          REPOSITORY_DEVSKIM_DISABLE: 'true'
+          # Disable DevSkim (XML parse errors with SARIF output; DS162092 flags intentional localhost in Dockerfile/docker-compose)
+          DISABLE_LINTERS: REPOSITORY_DEVSKIM
           # Make yamllint non-blocking (warnings only)
           DISABLE_ERRORS_LINTERS: YAML
           FILTER_REGEX_EXCLUDE: (node_modules|\.git|dist|build|coverage|\.next|\.cache)

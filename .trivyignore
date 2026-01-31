@@ -1,0 +1,3 @@
+# lodash: fixed via package.json overrides (lodash >=4.17.23); lock file resolves to 4.17.23
+# Trivy may still report from dependency declaration; ignore until scanner uses resolved version
+CVE-2025-13465
