@@ -11,6 +11,15 @@ Backend Express/Node.js da plataforma Digital Step Flow.
 - Zod para validação de schemas
 - Helmet para cabeçalhos de segurança
 
+## Imagens de contêiner
+
+A imagem Docker do backend é construída com práticas voltadas à segurança, utilizando **imagem base reforçada (hardened image)**. O Dockerfile usa a imagem base de workloads Node.js 24 (`raphaelmoraes/digital-step-flow-base-node`), que por sua vez é derivada do [Alpine Base](https://hub.docker.com/hardened-images/catalog/dhi/alpine-base) do catálogo Docker Hardened Images (`dhi.io/alpine-base`), com o objetivo de reduzir a superfície de ataque e aumentar a confiabilidade da aplicação.
+
+- **Imagem da aplicação:** construída a partir da imagem base de workload Node.js 24 (hardened). Detalhes de construção e publicação: repositório [pucrs-tcc-digital-step-flow-base-image](https://github.com/raphaelmoraes/pucrs-tcc-digital-step-flow-base-image) (workload `workload/node-24/`).
+- **CI/CD:** os jobs de deploy no GitHub Actions (atualização de manifests Kubernetes) rodam no container **CI/CD Runner** (`raphaelmoraes/digital-step-flow-cicd-runner`), que também é construído a partir da imagem hardened Alpine Base e reúne as ferramentas necessárias para CI/CD (kubectl, kustomize, Docker CLI, Trivy, etc.). Detalhes: repositório base-image, diretório `cicd-runner/`.
+
+Os detalhes técnicos de construção, versionamento e publicação das imagens base estão documentados no repositório de base images e neste repositório (Build Docker, GitHub Actions).
+
 ## Desenvolvimento Local
 
 ### Docker Compose (backend + frontend + Postgres + Redis + observabilidade)
