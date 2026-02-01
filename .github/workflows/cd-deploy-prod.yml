@@ -39,6 +39,7 @@ jobs:
       
       - name: Determine version based on branch strategy
         id: version
+        shell: bash
         env:
           GITHUB_REF_TYPE: ${{ github.ref_type }}
           GITHUB_REF: ${{ github.ref }}

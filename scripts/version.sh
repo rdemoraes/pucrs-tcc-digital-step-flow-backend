@@ -92,11 +92,12 @@ determine_version() {
 		local latest_version="${latest_tag#v}"
 		log_info "Latest version found: ${latest_version}"
 
-		# Parse version components
-		IFS='.' read -r -a version_parts <<<"$latest_version"
-		local major="${version_parts[0]:-0}"
-		local minor="${version_parts[1]:-0}"
-		local patch="${version_parts[2]:-0}"
+		# Parse version components (POSIX-friendly: no <<< or arrays)
+		local major minor patch
+		major=$(echo "$latest_version" | cut -d. -f1)
+		minor=$(echo "$latest_version" | cut -d. -f2)
+		patch=$(echo "$latest_version" | cut -d. -f3)
+		major=${major:-0}; minor=${minor:-0}; patch=${patch:-0}
 
 		# Determine bump type based on source branch
 		# Priority: head_ref (PR merge) > pr_head_ref (PR event) > ref_name (current branch)
