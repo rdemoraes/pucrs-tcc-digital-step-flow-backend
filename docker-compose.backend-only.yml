@@ -1,5 +1,5 @@
-# Full stack for local development: backend, frontend, Postgres, Redis, observability (Prometheus, Grafana, Loki, Tempo)
-# Prerequisites: clone frontend repo next to backend as ../pucrs-tcc-digital-step-flow-frontend (or use docker-compose.backend-only.yml)
+# Backend + Postgres + Redis + observability only (no frontend)
+# Use this if you run the frontend locally with npm run dev, or don't need the frontend container.
 version: '3.8'
 
 services:
@@ -42,23 +42,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  frontend:
-    build:
-      context: ../pucrs-tcc-digital-step-flow-frontend
-      dockerfile: Dockerfile
-    container_name: digital-step-flow-frontend
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8080/api
-    ports:
-      - "127.0.0.1:3000:3000"
-    volumes:
-      - ../pucrs-tcc-digital-step-flow-frontend/src:/app/src:ro
-    networks:
-      - app-network
-    depends_on:
-      - backend
-    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine

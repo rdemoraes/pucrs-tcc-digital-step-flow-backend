@@ -13,7 +13,12 @@ Backend Express/Node.js da plataforma Digital Step Flow.
 
 ## Desenvolvimento Local
 
-### Como desenvolver o backend
+Para **desenvolvimento com Docker Compose** (backend + frontend + Postgres + Redis + observabilidade: Prometheus, Grafana, Loki, Tempo), veja [docs/local-development.md](./docs/local-development.md). Resumo:
+
+- **Stack completa:** clone o frontend ao lado do backend (`../pucrs-tcc-digital-step-flow-frontend`) e execute `docker compose up -d` na raiz do backend.
+- **Só backend + infra:** `docker compose -f docker-compose.backend-only.yml up -d` (frontend pode rodar com `npm run dev` no repo do frontend).
+
+### Como desenvolver o backend (sem Docker)
 
 1. **Pré-requisitos:** Node.js v24.13.0, npm 11.6.3. Opcional: Docker, PostgreSQL para testes locais.
 2. **Instale dependências e suba o servidor:**
