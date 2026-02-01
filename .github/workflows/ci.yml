@@ -410,9 +410,78 @@ jobs:
             trivy-image-backend-sbom.json
           retention-days: 30
 
-  k8s-set-deploy-image-dev:
-    name: CD Pipeline - Deploy DEV
-    needs: [build, trivy-scan]
+  # checkov:skip=CKV2_GHA_1: Permissions are specific (contents:write for push), not write-all
+  deploy-dev:
+    name: Deploy to Dev (update k8s manifests)
+    needs: [trivy-scan]
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
+    container:
+      image: raphaelmoraes/digital-step-flow-cicd-runner:0.0.1
+      options: --user root
+    permissions:
+      contents: write
     steps:
-      - uses: ./.github/workflows/cd-deploy-dev.yml
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine version based on branch strategy
+        id: version
+        shell: bash
+        env:
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_HEAD_REF: ${{ github.event.head_ref }}
+          GITHUB_EVENT_PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          source scripts/version.sh
+          determine_version \
+            "$GITHUB_REF_TYPE" \
+            "$GITHUB_REF" \
+            "$GITHUB_HEAD_REF" \
+            "$GITHUB_EVENT_PULL_REQUEST_HEAD_REF" \
+            "$GITHUB_REF_NAME"
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Clone k8s repository
+        run: |
+          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/pucrs-tcc-digital-step-flow-backend-k8s.git k8s-repo
+
+      - name: Setup k8s repository for dev
+        working-directory: ./k8s-repo
+        run: |
+          git fetch --tags
+          git checkout develop
+
+      - name: Update backend image in kustomization
+        working-directory: ./k8s-repo/k8s/dev
+        run: |
+          NEW_IMAGE="${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}"
+          echo "Updating dev backend image to ${NEW_IMAGE}"
+          kustomize edit set image backend=${NEW_IMAGE}
+
+      - name: Check for changes
+        id: changes
+        working-directory: ./k8s-repo
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            git status --short
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.has_changes == 'true'
+        working-directory: ./k8s-repo
+        run: |
+          git add k8s/dev/kustomization.yaml
+          git commit -m "chore: update dev image tag to ${{ steps.version.outputs.version }} [skip ci]"
+          git push origin develop
