@@ -465,7 +465,7 @@ jobs:
         run: |
           NEW_IMAGE="${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}"
           echo "Updating dev backend image to ${NEW_IMAGE}"
-          kustomize edit set image backend=${NEW_IMAGE}
+          /usr/local/bin/kustomize edit set image backend=${NEW_IMAGE}
 
       - name: Check for changes
         id: changes
