@@ -13,9 +13,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-# CKV2_GHA_1: no write-all at top level; job sets contents: write for push
-permissions: {}
-
 env:
   REGISTRY: docker.io
   DOCKER_HUB_USERNAME: raphaelmoraes
@@ -25,6 +22,8 @@ jobs:
   k8s-set-deploy-image-dev:
     name: Update Kubernetes Manifests - Dev
     runs-on: ubuntu-latest
+    # Only run when triggered manually or when the triggering CI run succeeded
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     container:
       image: raphaelmoraes/digital-step-flow-cicd-runner:0.0.1
       options: --user root
@@ -34,6 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: false
@@ -41,11 +41,11 @@ jobs:
       - name: Determine version based on branch strategy
         id: version
         env:
-          GITHUB_REF_TYPE: ${{ github.ref_type }}
-          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REF_TYPE: ${{ github.event_name == 'workflow_run' && 'branch' || github.ref_type }}
+          GITHUB_REF: ${{ github.event_name == 'workflow_run' && format('refs/heads/{0}', github.event.workflow_run.head_branch) || github.ref }}
           GITHUB_HEAD_REF: ${{ github.event.head_ref }}
           GITHUB_EVENT_PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_REF_NAME: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
         run: |
           source scripts/version.sh
           determine_version \
