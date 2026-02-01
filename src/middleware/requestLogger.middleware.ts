@@ -2,19 +2,9 @@ import { Request, Response, NextFunction } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { logger } from '../utils/logger'
 
-// Extend Express Request to include request_id
-declare global {
-  namespace Express {
-    interface Request {
-      request_id?: string
-      start_time?: number
-    }
-  }
-}
-
-export function requestLogger(req: Request, res: Response, next: NextFunction) {
-  // Generate request ID if not present
-  req.request_id = req.headers['x-request-id'] as string || uuidv4()
+export function requestLogger (req: Request, res: Response, next: NextFunction): void {
+  const headerId = req.headers['x-request-id']
+  req.request_id = (typeof headerId === 'string' && headerId !== '') ? headerId : uuidv4()
   req.start_time = Date.now()
 
   // Log incoming request
@@ -23,24 +13,25 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
     method: req.method,
     path: req.path,
     ip: req.ip,
-    user_agent: req.get('user-agent'),
+    user_agent: req.get('user-agent')
   })
 
   // Capture response finish event
   res.on('finish', () => {
-    const duration = req.start_time ? Date.now() - req.start_time : 0
-    
-    const logContext: any = {
+    const duration = (req.start_time !== undefined && req.start_time !== null)
+      ? Date.now() - req.start_time
+      : 0
+
+    const logContext: Record<string, string | number | undefined> = {
       request_id: req.request_id,
       method: req.method,
       path: req.path,
       status_code: res.statusCode,
-      duration_ms: duration,
+      duration_ms: duration
     }
 
-    // Add user_id if available (from auth middleware)
-    if ((req as any).user?.id) {
-      logContext.user_id = (req as any).user.id
+    if (req.user?.id !== undefined) {
+      logContext.user_id = req.user.id
     }
 
     if (res.statusCode >= 500) {
@@ -52,6 +43,5 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
     }
   })
 
-  next()
+  ;(next as (err?: unknown) => void)()
 }
-

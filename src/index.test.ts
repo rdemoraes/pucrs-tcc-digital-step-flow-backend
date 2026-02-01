@@ -5,4 +5,3 @@ describe('Application', () => {
     expect(true).toBe(true)
   })
 })
-

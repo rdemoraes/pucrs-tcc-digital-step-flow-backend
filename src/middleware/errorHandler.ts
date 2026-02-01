@@ -1,34 +1,41 @@
 import { Request, Response, NextFunction } from 'express'
 import { logger } from '../utils/logger'
 
-export interface AppError extends Error {
+export class AppError extends Error {
   statusCode?: number
+
+  constructor (message: string, statusCode?: number) {
+    super(message)
+    this.name = 'AppError'
+    this.statusCode = statusCode
+    Object.setPrototypeOf(this, AppError.prototype)
+  }
 }
 
-export function errorHandler(
+export function errorHandler (
   err: AppError,
   req: Request,
   res: Response,
-  next: NextFunction
-) {
-  const statusCode = err.statusCode || 500
-  const message = err.message || 'Internal server error'
+  _next: NextFunction
+): void {
+  const statusCode = err.statusCode !== undefined ? err.statusCode : 500
+  const message = (err.message !== undefined && err.message !== '') ? err.message : 'Internal server error'
 
-  const logContext: any = {
-    request_id: (req as any).request_id,
+  const logContext: Record<string, string | number | undefined> = {
+    request_id: req.request_id,
     path: req.path,
     method: req.method,
     status_code: statusCode,
-    error_message: message,
+    error_message: message
   }
 
   // Add user_id if available
-  if ((req as any).user?.id) {
-    logContext.user_id = (req as any).user.id
+  if (req.user?.id !== undefined) {
+    logContext.user_id = req.user.id
   }
 
   // Add stack trace in development
-  if (process.env.NODE_ENV === 'development' && err.stack) {
+  if (process.env.NODE_ENV === 'development' && err.stack !== undefined && err.stack !== '') {
     logContext.stack = err.stack
   }
 
@@ -36,8 +43,7 @@ export function errorHandler(
 
   res.status(statusCode).json({
     message,
-    request_id: (req as any).request_id,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    request_id: req.request_id,
+    ...(process.env.NODE_ENV === 'development' && err.stack !== undefined ? { stack: err.stack } : {})
   })
 }
-

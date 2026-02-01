@@ -13,6 +13,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+# CKV2_GHA_1: no write-all at top level; jobs that need write set permissions explicitly
+permissions: {}
+
 env:
   REGISTRY: docker.io
   DOCKER_HUB_USERNAME: raphaelmoraes
@@ -26,7 +29,7 @@ jobs:
     name: Lint Code
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       
       - name: Extract Node.js version (major.minor.patch)
         id: node_version
@@ -37,7 +40,7 @@ jobs:
           echo "Using Node.js version: ${NODE_VERSION}"
       
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ steps.node_version.outputs.version }}
           cache: 'npm'
@@ -54,12 +57,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0  # Full history for repository linters
       
       - name: Run MegaLinter for Source Code
-        uses: oxsecurity/megalinter@v7
+        uses: oxsecurity/megalinter@bacb5f8674e3730b904ca4d20c8bd477bc51b1a7
         env:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -69,6 +72,8 @@ jobs:
           FILTER_REGEX_EXCLUDE: (k8s/|argocd/|docker-compose\.yml|Dockerfile|\.dockerignore|node_modules|\.git|dist|build|coverage|\.next|\.cache)
           # Enable code-focused linters
           ENABLE: JAVASCRIPT,TYPESCRIPT,BASH
+          # Backend uses ESLint, not ts-standard; disable ts-standard to avoid style conflicts
+          DISABLE_LINTERS: TYPESCRIPT_TS_STANDARD
           # Disable infrastructure linters and duplicate style checkers
           DISABLE: COPYPASTE,SPELL,JAVASCRIPT_STANDARD,TYPESCRIPT_TS_STANDARD,REPOSITORY_KICS,REPOSITORY_CHECKOV,REPOSITORY_TRIVY,REPOSITORY_DEVSKIM,REPOSITORY_GITLEAKS,REPOSITORY_TRUFFLEHOG,REPOSITORY_GRYPE,REPOSITORY_SECRETLINT,REPOSITORY_DUSTILOCK,REPOSITORY_SYFT,REPOSITORY_TRIVY_SBOM,REPOSITORY_GIT_DIFF,DOCKER,YAML,MARKDOWN,JSON
           # Make some linters non-blocking (warnings only)
@@ -82,12 +87,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0  # Full history for repository linters
       
       - name: Run MegaLinter for Infrastructure
-        uses: oxsecurity/megalinter@v7
+        uses: oxsecurity/megalinter@bacb5f8674e3730b904ca4d20c8bd477bc51b1a7
         env:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -103,8 +108,12 @@ jobs:
           REPOSITORY_KICS_ENABLE: 'true'
           REPOSITORY_CHECKOV_ENABLE: 'true'
           REPOSITORY_TRIVY_ENABLE: 'true'
-          # Disable devskim (has XML parsing errors)
-          REPOSITORY_DEVSKIM_DISABLE: 'true'
+          # Skip specific Checkov checks (same as frontend)
+          REPOSITORY_CHECKOV_SKIP_CHECK: CKV2_GHA_1
+          # Exclude LOW and INFO severity findings from KICS; exclude workflow files (same as frontend)
+          REPOSITORY_KICS_ARGUMENTS: "--exclude-severities info,low --exclude-paths .github/workflows/*.yml"
+          # Disable DevSkim (XML parse errors with SARIF output; DS162092 flags intentional localhost in Dockerfile/docker-compose)
+          DISABLE_LINTERS: REPOSITORY_DEVSKIM
           # Make yamllint non-blocking (warnings only)
           DISABLE_ERRORS_LINTERS: YAML
           FILTER_REGEX_EXCLUDE: (node_modules|\.git|dist|build|coverage|\.next|\.cache)
@@ -117,7 +126,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [quality-gate-infra, quality-gate-code]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       
       - name: Extract Node.js version (major.minor.patch)
         id: node_version
@@ -128,7 +137,7 @@ jobs:
           echo "Using Node.js version: ${NODE_VERSION}"
       
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ steps.node_version.outputs.version }}
           cache: 'npm'
@@ -141,7 +150,7 @@ jobs:
         run: npm run test:coverage
       
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238
         with:
           files: ./coverage/coverage-final.json
           flags: backend
@@ -150,10 +159,11 @@ jobs:
     name: Build Container Image
     needs: [test]
     runs-on: ubuntu-latest
+    # checkov:skip=CKV2_GHA_1: Permissions are specific (contents:write for tags), not write-all
     permissions:
       contents: write  # Required to create tags
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -181,14 +191,14 @@ jobs:
             "$GITHUB_REF_NAME"
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       
       - name: Log in to Docker Hub
         run: |
           echo "${{ secrets.DOCKERHUB_PAT }}" | docker login -u raphaelmoraes --password-stdin
       
       - name: Build and push backend image
-        uses: docker/bake-action@v5
+        uses: docker/bake-action@4a9a8d494466d37134e2bfca2d3a8de8fb2681ad
         with:
           files: docker-bake.hcl
           targets: backend
@@ -208,7 +218,7 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       
       - name: Determine version based on branch strategy
         id: version
@@ -236,7 +246,7 @@ jobs:
           docker pull ${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}
       
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
         with:
           image-ref: '${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}'
           format: 'table'
@@ -388,7 +398,7 @@ jobs:
           fi
       
       - name: Upload Trivy reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: trivy-reports-backend
@@ -400,3 +410,78 @@ jobs:
             trivy-image-backend-sbom.json
           retention-days: 30
 
+  # checkov:skip=CKV2_GHA_1: Permissions are specific (contents:write for push), not write-all
+  deploy-dev:
+    name: Deploy to Dev (update k8s manifests)
+    needs: [trivy-scan]
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    container:
+      image: raphaelmoraes/digital-step-flow-cicd-runner:0.0.1
+      options: --user root
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine version based on branch strategy
+        id: version
+        shell: bash
+        env:
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_HEAD_REF: ${{ github.event.head_ref }}
+          GITHUB_EVENT_PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          source scripts/version.sh
+          determine_version \
+            "$GITHUB_REF_TYPE" \
+            "$GITHUB_REF" \
+            "$GITHUB_HEAD_REF" \
+            "$GITHUB_EVENT_PULL_REQUEST_HEAD_REF" \
+            "$GITHUB_REF_NAME"
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Clone k8s repository
+        run: |
+          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/pucrs-tcc-digital-step-flow-backend-k8s.git k8s-repo
+
+      - name: Setup k8s repository for dev
+        working-directory: ./k8s-repo
+        run: |
+          git fetch --tags
+          git checkout develop
+
+      - name: Update backend image in kustomization
+        working-directory: ./k8s-repo/k8s/dev
+        run: |
+          NEW_IMAGE="${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}"
+          echo "Updating dev backend image to ${NEW_IMAGE}"
+          /usr/local/bin/kustomize edit set image backend=${NEW_IMAGE}
+
+      - name: Check for changes
+        id: changes
+        working-directory: ./k8s-repo
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            git status --short
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.has_changes == 'true'
+        working-directory: ./k8s-repo
+        run: |
+          git add k8s/dev/kustomization.yaml
+          git commit -m "chore: update dev image tag to ${{ steps.version.outputs.version }} [skip ci]"
+          git push origin develop

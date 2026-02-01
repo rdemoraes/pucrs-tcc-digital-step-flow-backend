@@ -1,22 +1,25 @@
 import { Request, Response, NextFunction } from 'express'
-import { ZodSchema } from 'zod'
+import { ZodSchema, ZodError } from 'zod'
 import { AppError } from './errorHandler'
 
-export function validateRequest(schema: ZodSchema) {
-  return (req: Request, res: Response, next: NextFunction) => {
+function formatZodErrors (error: ZodError): string {
+  return error.errors.map((e) => e.message).join(', ')
+}
+
+export function validateRequest (schema: ZodSchema) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     try {
       schema.parse({
         body: req.body,
         query: req.query,
-        params: req.params,
+        params: req.params
       })
-      next()
-    } catch (error: any) {
-      throw new AppError(
-        error.errors?.map((e: any) => e.message).join(', ') || 'Validation failed',
-        400
-      )
+      ;(next as (err?: unknown) => void)()
+    } catch (error: unknown) {
+      const message = error instanceof ZodError
+        ? formatZodErrors(error)
+        : 'Validation failed'
+      throw new AppError(message, 400)
     }
   }
 }
-
