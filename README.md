@@ -13,10 +13,61 @@ Backend Express/Node.js da plataforma Digital Step Flow.
 
 ## Desenvolvimento Local
 
-Para **desenvolvimento com Docker Compose** (backend + frontend + Postgres + Redis + observabilidade: Prometheus, Grafana, Loki, Tempo), veja [docs/local-development.md](./docs/local-development.md). Resumo:
+### Docker Compose (backend + frontend + Postgres + Redis + observabilidade)
 
-- **Stack completa:** clone o frontend ao lado do backend (`../pucrs-tcc-digital-step-flow-frontend`) e execute `docker compose up -d` na raiz do backend.
-- **Só backend + infra:** `docker compose -f docker-compose.backend-only.yml up -d` (frontend pode rodar com `npm run dev` no repo do frontend).
+O projeto inclui Docker Compose com backend, frontend, Postgres, Redis, Prometheus, Grafana, Loki e Tempo.
+
+**Pré-requisitos:** Docker e Docker Compose instalados.
+
+**1. Criar `.env` na raiz do backend (opcional; valores padrão funcionam):**
+
+```bash
+cp env.example .env
+# Edite .env se quiser (JWT_SECRET, POSTGRES_PASSWORD, GRAFANA_ADMIN_PASSWORD, etc.)
+```
+
+**2. Stack completa (backend + frontend em container):**
+
+Clone o repositório do frontend **ao lado** do backend (mesmo diretório pai):
+
+```bash
+# Exemplo: se o backend está em ~/git/pucrs-tcc-digital-step-flow-backend
+cd ~/git
+git clone <url-do-repo-frontend> pucrs-tcc-digital-step-flow-frontend
+```
+
+Na raiz do **backend**:
+
+```bash
+docker compose up -d
+```
+
+**3. Só backend + infra (sem frontend em container):**
+
+Use quando quiser rodar o frontend localmente com `npm run dev` no repo do frontend:
+
+```bash
+docker compose -f docker-compose.backend-only.yml up -d
+```
+
+**URLs após subir:**
+
+| Serviço     | URL                      |
+|------------|---------------------------|
+| Backend API | http://localhost:8080     |
+| Frontend    | http://localhost:3000     |
+| Grafana     | http://localhost:3001 (admin / `GRAFANA_ADMIN_PASSWORD`) |
+| Prometheus  | http://localhost:9090    |
+
+**Comandos úteis:**
+
+```bash
+docker compose logs -f backend    # Ver logs do backend
+docker compose down              # Parar todos os serviços
+docker compose down -v            # Parar e remover volumes
+```
+
+Detalhes (variáveis, health checks, apenas Node): [docs/local-development.md](./docs/local-development.md).
 
 ### Como desenvolver o backend (sem Docker)
 
