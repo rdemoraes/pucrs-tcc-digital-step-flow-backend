@@ -28,14 +28,27 @@ O projeto inclui Docker Compose com backend, frontend, Postgres, Redis, Promethe
 
 **Pré-requisitos:** Docker e Docker Compose instalados.
 
-**1. Criar `.env` na raiz do backend (opcional; valores padrão funcionam):**
+**1. Autenticar no registro de imagens (Docker login)**
+
+Antes de baixar imagens da solução ou subir o compose, faça login no registro onde as imagens estão publicadas (por exemplo Docker Hub, para `raphaelmoraes/*`). Se as imagens base usarem outro registro (ex.: `dhi.io`), faça login também nesse registro.
+
+```bash
+# Docker Hub (imagens da solução: digital-step-flow-base-node, etc.)
+docker login
+# Ou: docker login -u <seu-usuario> --password-stdin  (senha via stdin)
+
+# Se usar imagens em dhi.io (ex.: alpine-base hardened)
+docker login dhi.io
+```
+
+**2. Criar `.env` na raiz do backend (opcional; valores padrão funcionam):**
 
 ```bash
 cp env.example .env
 # Edite .env se quiser (JWT_SECRET, POSTGRES_PASSWORD, GRAFANA_ADMIN_PASSWORD, etc.)
 ```
 
-**2. Stack completa (backend + frontend em container):**
+**3. Stack completa (backend + frontend em container):**
 
 Clone o repositório do frontend **ao lado** do backend (mesmo diretório pai):
 
@@ -51,7 +64,7 @@ Na raiz do **backend**:
 docker compose up -d
 ```
 
-**3. Só backend + infra (sem frontend em container):**
+**4. Só backend + infra (sem frontend em container):**
 
 Use quando quiser rodar o frontend localmente com `npm run dev` no repo do frontend:
 
