@@ -13,24 +13,34 @@ Backend Express/Node.js da plataforma Digital Step Flow.
 
 ## Desenvolvimento Local
 
-Para instruções detalhadas de desenvolvimento local, consulte [docs/local-development.md](./docs/local-development.md).
+### Como desenvolver o backend
+
+1. **Pré-requisitos:** Node.js v24.13.0, npm 11.6.3. Opcional: Docker, PostgreSQL para testes locais.
+2. **Instale dependências e suba o servidor:**
 
 ```bash
-# Instalar dependências
 npm install
-
-# Executar em modo desenvolvimento
 npm run dev
-
-# Build para produção
-npm run build
-
-# Executar aplicação
-npm start
-
-# Executar testes
-npm test
 ```
+
+O backend estará em **http://localhost:8080**. Crie um `.env` na raiz (veja [docs/local-development.md](./docs/local-development.md) ou `env.example`).
+
+3. **Scripts úteis:**
+
+```bash
+npm run dev          # Desenvolvimento (hot reload)
+npm run build        # Build para produção
+npm start            # Executar aplicação compilada
+npm test             # Testes
+npm run test:coverage # Testes com cobertura
+npm run lint         # Linter
+```
+
+### Desenvolvendo backend e frontend juntos
+
+- **Backend:** `npm run dev` neste repositório → http://localhost:8080  
+- **Frontend:** no repositório [pucrs-tcc-digital-step-flow-frontend](https://github.com/raphaelmoraes/pucrs-tcc-digital-step-flow-frontend), `npm run dev` → http://localhost:3000  
+- No frontend, use `VITE_API_BASE_URL=http://localhost:8080/api` no `.env` para apontar para o backend local.
 
 ## Estrutura do Projeto
 
@@ -94,13 +104,37 @@ git tag -a v1.0.0 -m "Release version 1.0.0"
 git push origin v1.0.0
 ```
 
-## CI/CD
+## GitHub Actions
 
-O pipeline CI/CD constrói e publica automaticamente as imagens quando:
-- Um PR é mergeado para `main` ou `develop`
-- Uma tag semântica é criada (ex: `v1.0.0`)
+### Diagrama do pipeline CI
 
-Após o build bem-sucedido, os manifests Kubernetes são atualizados automaticamente com a nova tag da imagem.
+O pipeline CI (`.github/workflows/ci.yml`) roda em **push** e **pull_request** para `develop` e em tags `v*.*.*`:
+
+```mermaid
+flowchart LR
+  subgraph CI
+    A[Lint Code] --> B[Quality Gate - Source Code]
+    A --> C[Quality Gate - Infra Code]
+    B --> D[Test - Backend]
+    C --> D
+    D --> E[Build Container Image]
+    E --> F[Trivy Vulnerability Scan]
+  end
+```
+
+| Job | Descrição |
+|-----|-----------|
+| **Lint Code** | ESLint no código TypeScript/JavaScript. |
+| **Quality Gate - Source Code** | MegaLinter em código (JS/TS/Bash). |
+| **Quality Gate - Infra Code** | MegaLinter em k8s, Dockerfile, YAML; KICS, Checkov, Trivy em infra. |
+| **Test - Backend** | Testes com cobertura; upload para Codecov. |
+| **Build Container Image** | Determina versão (branch/tag), build e push da imagem Docker. |
+| **Trivy Vulnerability Scan** | Escaneia a imagem construída (CRITICAL/HIGH). |
+
+### CD (Deploy)
+
+- **CD Deploy DEV** (`cd-deploy-dev.yml`): dispara após o CI concluir em `develop`; atualiza manifests Kubernetes (dev) com a nova tag da imagem.
+- **CD Deploy PROD** (`cd-deploy-prod.yml`): para deploys de produção (ex.: tag ou manual).
 
 ## Documentação
 
