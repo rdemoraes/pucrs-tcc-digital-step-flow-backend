@@ -11,6 +11,15 @@ Backend Express/Node.js da plataforma Digital Step Flow.
 - Zod para validação de schemas
 - Helmet para cabeçalhos de segurança
 
+## Imagens de contêiner
+
+A imagem Docker do backend é construída com práticas voltadas à segurança, utilizando **imagem base reforçada (hardened image)**. O Dockerfile usa a imagem base de workloads Node.js 24 (`raphaelmoraes/digital-step-flow-base-node`), que por sua vez é derivada do [Alpine Base](https://hub.docker.com/hardened-images/catalog/dhi/alpine-base) do catálogo Docker Hardened Images (`dhi.io/alpine-base`), com o objetivo de reduzir a superfície de ataque e aumentar a confiabilidade da aplicação.
+
+- **Imagem da aplicação:** construída a partir da imagem base de workload Node.js 24 (hardened). Detalhes de construção e publicação: repositório [pucrs-tcc-digital-step-flow-base-image](https://github.com/raphaelmoraes/pucrs-tcc-digital-step-flow-base-image) (workload `workload/node-24/`).
+- **CI/CD:** os jobs de deploy no GitHub Actions (atualização de manifests Kubernetes) rodam no container **CI/CD Runner** (`raphaelmoraes/digital-step-flow-cicd-runner`), que também é construído a partir da imagem hardened Alpine Base e reúne as ferramentas necessárias para CI/CD (kubectl, kustomize, Docker CLI, Trivy, etc.). Detalhes: repositório base-image, diretório `cicd-runner/`.
+
+Os detalhes técnicos de construção, versionamento e publicação das imagens base estão documentados no repositório de base images e neste repositório (Build Docker, GitHub Actions).
+
 ## Desenvolvimento Local
 
 ### Docker Compose (backend + frontend + Postgres + Redis + observabilidade)
@@ -19,14 +28,27 @@ O projeto inclui Docker Compose com backend, frontend, Postgres, Redis, Promethe
 
 **Pré-requisitos:** Docker e Docker Compose instalados.
 
-**1. Criar `.env` na raiz do backend (opcional; valores padrão funcionam):**
+**1. Autenticar no registro de imagens (Docker login)**
+
+Antes de baixar imagens da solução ou subir o compose, faça login no registro onde as imagens estão publicadas (por exemplo Docker Hub, para `raphaelmoraes/*`). Se as imagens base usarem outro registro (ex.: `dhi.io`), faça login também nesse registro.
+
+```bash
+# Docker Hub (imagens da solução: digital-step-flow-base-node, etc.)
+docker login
+# Ou: docker login -u <seu-usuario> --password-stdin  (senha via stdin)
+
+# Se usar imagens em dhi.io (ex.: alpine-base hardened)
+docker login dhi.io
+```
+
+**2. Criar `.env` na raiz do backend (opcional; valores padrão funcionam):**
 
 ```bash
 cp env.example .env
 # Edite .env se quiser (JWT_SECRET, POSTGRES_PASSWORD, GRAFANA_ADMIN_PASSWORD, etc.)
 ```
 
-**2. Stack completa (backend + frontend em container):**
+**3. Stack completa (backend + frontend em container):**
 
 Clone o repositório do frontend **ao lado** do backend (mesmo diretório pai):
 
@@ -42,7 +64,7 @@ Na raiz do **backend**:
 docker compose up -d
 ```
 
-**3. Só backend + infra (sem frontend em container):**
+**4. Só backend + infra (sem frontend em container):**
 
 Use quando quiser rodar o frontend localmente com `npm run dev` no repo do frontend:
 
@@ -58,6 +80,8 @@ docker compose -f docker-compose.backend-only.yml up -d
 | Frontend    | http://localhost:3000     |
 | Grafana     | http://localhost:3001 (admin / `GRAFANA_ADMIN_PASSWORD`) |
 | Prometheus  | http://localhost:9090    |
+
+As portas seguem a convenção usual da indústria: frontend (UI) em 3000 (padrão de React, Next.js, Vite) e backend (API) em 8080 (comum em servidores e APIs).
 
 **Comandos úteis:**
 

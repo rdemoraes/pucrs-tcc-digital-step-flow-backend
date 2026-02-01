@@ -44,6 +44,18 @@ git/
 └── pucrs-tcc-digital-step-flow-frontend/
 ```
 
+### Autenticar no registro de imagens (Docker login)
+
+Antes de baixar qualquer imagem da solução ou subir o compose, faça login no registro onde as imagens estão publicadas (ex.: Docker Hub para `raphaelmoraes/*`). Se usar imagens em outro registro (ex.: `dhi.io`), faça login também:
+
+```bash
+# Docker Hub (imagens da solução)
+docker login
+
+# Registro dhi.io (se usar imagens hardened de lá)
+docker login dhi.io
+```
+
 ### Subir a stack completa (backend + frontend + Postgres + Redis + observabilidade)
 
 Na raiz do repositório do **backend**:
