@@ -68,6 +68,8 @@ docker compose -f docker-compose.backend-only.yml up -d
 | Grafana     | http://localhost:3001 (admin / `GRAFANA_ADMIN_PASSWORD`) |
 | Prometheus  | http://localhost:9090    |
 
+As portas seguem a convenção usual da indústria: frontend (UI) em 3000 (padrão de React, Next.js, Vite) e backend (API) em 8080 (comum em servidores e APIs).
+
 **Comandos úteis:**
 
 ```bash
