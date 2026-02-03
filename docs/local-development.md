@@ -56,6 +56,19 @@ docker login
 docker login dhi.io
 ```
 
+### Secrets (dados sensíveis)
+
+O Compose usa **Docker secrets** em vez de variáveis de ambiente para senhas e JWT. Crie os arquivos em `secrets/` antes de subir a stack:
+
+```bash
+mkdir -p secrets
+echo -n 'seu-jwt-secret-pelo-menos-32-chars' > secrets/jwt_secret.txt
+echo -n 'postgres' > secrets/postgres_password.txt
+echo -n 'admin' > secrets/grafana_admin_password.txt
+```
+
+Detalhes: [secrets/README.md](../secrets/README.md).
+
 ### Subir a stack completa (backend + frontend + Postgres + Redis + observabilidade)
 
 Na raiz do repositório do **backend**:
@@ -64,6 +77,7 @@ Na raiz do repositório do **backend**:
 # Criar .env se ainda não tiver (veja Variáveis de Ambiente abaixo)
 cp env.example .env
 
+# Criar arquivos de secrets (veja seção acima)
 # Subir todos os serviços
 docker compose up -d
 
@@ -74,7 +88,7 @@ docker compose logs -f frontend
 
 - **API:** http://localhost:8080  
 - **Frontend:** http://localhost:3000  
-- **Grafana:** http://localhost:3001 (admin / senha em `GRAFANA_ADMIN_PASSWORD`, padrão `admin`)  
+- **Grafana:** http://localhost:3001 (usuário `admin` / senha no arquivo `secrets/grafana_admin_password.txt`)  
 - **Prometheus:** http://localhost:9090  
 
 ### Subir só backend + infra (sem frontend em container)

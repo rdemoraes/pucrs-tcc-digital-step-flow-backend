@@ -15,6 +15,9 @@ coverage/
 .env.local
 .env.*.local
 
+# Docker Compose secrets (never commit secret file contents)
+secrets/*.txt
+
 # Logs
 *.log
 npm-debug.log*
