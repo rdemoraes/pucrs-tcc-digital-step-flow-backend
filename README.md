@@ -218,6 +218,8 @@ flowchart LR
 - **Deploy to Dev:** job `deploy-dev` dentro do próprio `ci.yml`; roda apenas em push para `develop` (após Trivy) e atualiza os manifests Kubernetes de dev com a nova tag da imagem.
 - **CD Deploy PROD** (`cd-deploy-prod.yml`): workflow dedicado para deploys de produção (ex.: tag ou manual).
 
+**Secrets para deploy:** o job **Deploy to Dev** clona e faz push no repositório de manifests Kubernetes (`backend-k8s`). O `GITHUB_TOKEN` padrão não tem permissão de escrita em outro repositório. Configure no repositório do backend o secret **`K8S_REPO_TOKEN`** com um Personal Access Token (ou fine-grained token) que tenha permissão **Contents: Read and write** no repositório `pucrs-tcc-digital-step-flow-backend-k8s`. O mesmo token é usado no clone e no push.
+
 ## Documentação
 
 - [Desenvolvimento Local](./docs/local-development.md)

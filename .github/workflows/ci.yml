@@ -451,8 +451,14 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Clone k8s repository
+        env:
+          K8S_REPO_TOKEN: ${{ secrets.K8S_REPO_TOKEN }}
         run: |
-          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/pucrs-tcc-digital-step-flow-backend-k8s.git k8s-repo
+          if [ -z "${K8S_REPO_TOKEN}" ]; then
+            echo "ERROR: K8S_REPO_TOKEN secret is not set. Add a PAT with push access to the backend-k8s repo." >&2
+            exit 1
+          fi
+          git clone "https://x-access-token:${K8S_REPO_TOKEN}@github.com/${{ github.repository_owner }}/pucrs-tcc-digital-step-flow-backend-k8s.git" k8s-repo
 
       - name: Setup k8s repository for dev
         working-directory: ./k8s-repo
@@ -460,12 +466,19 @@ jobs:
           git fetch --tags
           git checkout develop
 
+      - name: Install Kustomize
+        run: |
+          KUSTOMIZE_VERSION=5.4.2
+          curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" | tar -xz -C /usr/local/bin
+          chmod +x /usr/local/bin/kustomize
+          kustomize version
+
       - name: Update backend image in kustomization
         working-directory: ./k8s-repo/k8s/dev
         run: |
           NEW_IMAGE="${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.version }}"
           echo "Updating dev backend image to ${NEW_IMAGE}"
-          /usr/local/bin/kustomize edit set image backend=${NEW_IMAGE}
+          kustomize edit set image backend=${NEW_IMAGE}
 
       - name: Check for changes
         id: changes
