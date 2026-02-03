@@ -3,9 +3,11 @@
 # Secrets are mounted at /run/secrets/<name> (see docker-compose.yml).
 set -e
 if [ -f /run/secrets/jwt_secret ]; then
-  export JWT_SECRET=$(cat /run/secrets/jwt_secret | tr -d '\n\r')
+  JWT_SECRET="$(tr -d '\n\r' < /run/secrets/jwt_secret)"
+  export JWT_SECRET
 fi
 if [ -f /run/secrets/postgres_password ]; then
-  export POSTGRES_PASSWORD=$(cat /run/secrets/postgres_password | tr -d '\n\r')
+  POSTGRES_PASSWORD="$(tr -d '\n\r' < /run/secrets/postgres_password)"
+  export POSTGRES_PASSWORD
 fi
 exec "$@"
