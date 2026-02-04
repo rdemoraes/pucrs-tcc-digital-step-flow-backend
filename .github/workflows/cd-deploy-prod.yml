@@ -68,8 +68,14 @@ jobs:
           echo "Production branch: ${PROD_BRANCH}"
       
       - name: Clone k8s repository
+        env:
+          GITHUB_TOKEN_K8S: ${{ secrets.DIGITAL_STEP_FLOW_GITHUB_TOKEN }}
         run: |
-          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/pucrs-tcc-digital-step-flow-backend-k8s.git k8s-repo
+          if [ -z "${GITHUB_TOKEN_K8S}" ]; then
+            echo "ERROR: DIGITAL_STEP_FLOW_GITHUB_TOKEN secret is not set." >&2
+            exit 1
+          fi
+          git clone "https://x-access-token:${GITHUB_TOKEN_K8S}@github.com/${{ github.repository_owner }}/pucrs-tcc-digital-step-flow-backend-k8s.git" k8s-repo
       
       - name: Setup k8s repository for prod
         working-directory: ./k8s-repo
