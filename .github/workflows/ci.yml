@@ -415,7 +415,7 @@ jobs:
   # checkov:skip=CKV2_GHA_1: Permissions are specific (contents:write for push), not write-all
   deploy-dev:
     name: Deploy to Dev (update k8s manifests)
-    needs: [trivy-scan]
+    needs: [trivy-scan, build]
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     container:
